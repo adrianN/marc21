@@ -1,65 +1,14 @@
 use std::env;
 use std::fs;
-use std::str;
+use std::io::BufReader;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
+pub mod marcrecord;
+pub mod util;
 
-struct MarcHeader<'s> {
-    header: &'s [u8],
-}
-
-struct MarcRecordRef<'s> {
-    header: MarcHeader<'s>,
-    data: &'s [u8],
-}
-
-fn parse_usize(slice: &[u8]) -> usize {
-    let mut n: usize = 0;
-    for i in slice {
-        n *= 10;
-        n += (i - b'0') as usize;
-    }
-    n
-}
-
-impl<'s> MarcHeader<'s> {
-    pub fn record_length(&self) -> usize {
-        parse_usize(&self.header[0..5])
-    }
-}
-
-struct MarcDirectory<'s> {
-    directory: &'s [u8],
-}
-
-#[derive(Debug)]
-struct MarcDirectoryEntryRef<'s> {
-    entry: &'s [u8],
-}
-
-impl<'s> MarcDirectoryEntryRef<'s> {
-    pub fn entry_type(&self) -> usize {
-        parse_usize(&self.entry[0..3])
-    }
-    pub fn len(&self) -> usize {
-        parse_usize(&self.entry[3..7])
-    }
-    pub fn start(&self) -> usize {
-        parse_usize(&self.entry[7..12])
-    }
-}
-
-impl<'s> MarcDirectory<'s> {
-    fn get_entry(&self, i: usize) -> MarcDirectoryEntryRef {
-        MarcDirectoryEntryRef {
-            entry: &self.directory[12 * i..12 * (i + 1)],
-        }
-    }
-    fn num_entries(&self) -> usize {
-        self.len() / 12
-    }
-    fn len(&self) -> usize {
-        self.directory.len()
-    }
-}
+use marcrecord::MarcHeader;
+use marcrecord::MarcRecord;
 
 fn get_header(data: &[u8]) -> MarcHeader {
     MarcHeader {
@@ -67,63 +16,55 @@ fn get_header(data: &[u8]) -> MarcHeader {
     }
 }
 
-fn end_of_entry_position(data: &[u8]) -> Option<usize> {
-    data.iter().position(|&x| x == b'\x1e')
+struct MarcRecordBatch<'s> {
+    records: Vec<MarcRecord<'s>>,
 }
 
-fn end_of_subfield_position(data: &[u8]) -> Option<usize> {
-    data.iter().position(|&x| x == b'\x1f')
+struct MarcReader<R>
+where
+    R: Read + Seek,
+{
+    base_reader: BufReader<R>,
+    mem: Vec<u8>,
 }
 
-fn get_directory(data: &[u8]) -> MarcDirectory {
-    let directory_end = end_of_entry_position(&data[24..]);
-    return MarcDirectory {
-        directory: &data[24..24 + directory_end.expect("malformed entry")],
-    };
-}
-
-struct MarcRecordEntry<'s> {
-    data: &'s [u8],
-}
-
-struct MarcRecordEntries<'s> {
-    directory: MarcDirectory<'s>,
-    record_payload: &'s [u8],
-}
-
-impl<'s> MarcRecordRef<'s> {
-    pub fn new(data: &[u8]) -> MarcRecordRef {
-        let h = get_header(data);
-        let h_len = h.record_length();
-        MarcRecordRef {
-            header: h,
-            data: &data[0..h_len],
+impl<R> MarcReader<R>
+where
+    R: Read + Seek,
+{
+    fn read_header<'s>(&mut self, buf: &'s mut [u8]) -> MarcHeader<'s> {
+        let read = self.base_reader.read(buf).unwrap();
+        assert!(read == 24 as usize);
+        MarcHeader { header: buf }
+    }
+    fn read_batch<'s>(&mut self, mem: &'s mut [u8]) -> MarcRecordBatch<'s> {
+        let mut records: Vec<MarcRecord> = Vec::new();
+        let mut i = 0;
+        let capacity = mem.len();
+        let read = self.base_reader.read(mem).unwrap();
+        while i + 24 < read {
+            let header = MarcHeader {
+                header: &mem[i..i + 24],
+            };
+            let record_length = header.record_length();
+            if record_length + i < read {
+                // still fits in mem
+                i += header.record_length();
+                records.push(MarcRecord::new(
+                    header,
+                    &mem[i + 24..i + 24 + record_length],
+                ));
+            } else {
+                // mem full, backpedal
+                //self.base_reader.seek_relative(-24);
+                // TODO seek_relative is unstable in my version of rust
+                self.base_reader.seek(SeekFrom::Start(i as u64));
+                break;
+            }
         }
-    }
 
-    pub fn header(&self) -> &MarcHeader<'s> {
-        &self.header
+        return MarcRecordBatch { records: records };
     }
-
-    pub fn record_length(&self) -> usize {
-        self.data.len()
-    }
-    fn directory(&self) -> MarcDirectory<'s> {
-        get_directory(self.data)
-    }
-
-    pub fn entries(&self) -> MarcRecordEntries<'s> {
-        let d = self.directory();
-        let d_len = d.len();
-        MarcRecordEntries {
-            directory: d,
-            record_payload: &self.data[24 + d_len..],
-        }
-    }
-}
-
-struct MarcRecord {
-    data: Vec<u8>,
 }
 
 fn main() {
@@ -134,9 +75,11 @@ fn main() {
     dbg!(contents.len());
     let mut offset = 0;
     while offset < contents.len() {
-        let r = MarcRecordRef::new(&contents[offset..]);
+        let h = get_header(&contents[offset..]);
+        let h_len = h.record_length();
+        let r = MarcRecord::new(h, &contents[offset..offset + h_len]);
+        offset += h_len;
         let l = r.header().record_length();
-        offset += l;
         assert!(r.header().record_length() == r.record_length());
         //dbg!(str::from_utf8(&r.data));
         if l < 10 {
