@@ -61,10 +61,6 @@ where
         // TODO seek_relative is unstable in my version of rust
         self.base_reader.seek(SeekFrom::Start(start_pos + i as u64));
         let num_bytes = records.iter().map(|r| r.header().record_length()).sum::<usize>() as u64;
-        if num_bytes == 0 {
-          dbg!(read);
-          return Ok(None);
-        }
         let stream_pos = self.base_reader.stream_position().unwrap() ;
         let bytes_consumed = stream_pos - start_pos ;
         assert!(bytes_consumed== (num_bytes));
