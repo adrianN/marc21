@@ -1,3 +1,7 @@
+use std::io::BufReader;
+use std::io::Read;
+use std::io::Seek;
+use std::io::SeekFrom;
 use crate::util::parse_usize;
 
 pub struct MarcHeader<'s> {
@@ -96,5 +100,67 @@ impl<'s> MarcRecord<'s> {
             directory: d,
             record_payload: &self.data[24 + d_len..],
         }
+    }
+}
+
+pub struct MarcRecordBatch<'s> {
+    pub records: Vec<MarcRecord<'s>>,
+}
+
+pub struct MarcReader<R>
+where
+    R: Read + Seek,
+{
+    base_reader: BufReader<R>,
+}
+
+impl<R> MarcReader<R>
+where
+    R: Read + Seek,
+{
+    // TODO maybe take R instead of BufReader 
+    pub fn new(reader : BufReader<R>) -> MarcReader<R> {
+      MarcReader { base_reader : reader }
+    }
+
+    pub fn read_batch<'s>(
+        &mut self,
+        mem: &'s mut [u8],
+    ) -> Result<Option<MarcRecordBatch<'s>>, std::io::Error> {
+        let mut records: Vec<MarcRecord> = Vec::new();
+        let mut i = 0;
+        let capacity = mem.len();
+        let start_pos = self.base_reader.stream_position().unwrap();
+        let read = self.base_reader.read(mem)?;
+        if read == 0 {
+            return Ok(None);
+        }
+        while i + 24 < read {
+            let header = MarcHeader {
+                header: &mem[i..i + 24],
+            };
+            let record_length = header.record_length();
+            assert!(record_length < mem.len());
+            if record_length + i <= read {
+                // still fits in mem
+                records.push(MarcRecord::new(header, &mem[i + 24..i + record_length]));
+                i += record_length;
+            } else {
+                break;
+            }
+        }
+        // mem full, backpedal
+        //self.base_reader.seek_relative(-24);
+        // TODO seek_relative is unstable in my version of rust
+        self.base_reader.seek(SeekFrom::Start(start_pos + i as u64));
+//        let num_bytes = records
+//            .iter()
+//            .map(|r| r.header().record_length())
+//            .sum::<usize>() as u64;
+//        let stream_pos = self.base_reader.stream_position().unwrap();
+//        let bytes_consumed = stream_pos - start_pos;
+//        assert!(bytes_consumed == (num_bytes));
+
+        Ok(Some(MarcRecordBatch { records: records }))
     }
 }
