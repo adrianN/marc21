@@ -25,6 +25,8 @@ pub struct AuthorityRecordMeta {
     field_lengths: Vec<usize>,
 }
 
+// TODO we could implement a builder pattern to reuse things we already
+// parsed during pre-filtering
 impl AuthorityRecordMeta {
     pub fn new(r: &MarcRecord) -> AuthorityRecordMeta {
         let t = r.header().record_type();
