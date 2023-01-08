@@ -3,11 +3,13 @@ use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 pub mod marcrecord;
+pub mod parsedrecord;
 pub mod util;
 
 use marcrecord::MarcHeader;
-use marcrecord::MarcRecord;
 use marcrecord::MarcReader;
+use marcrecord::MarcRecord;
+use parsedrecord::*;
 
 fn get_header(data: &[u8]) -> MarcHeader {
     MarcHeader {
@@ -15,18 +17,20 @@ fn get_header(data: &[u8]) -> MarcHeader {
     }
 }
 
-
 fn main() {
     let args: Vec<String> = env::args().collect();
     let filename = &args[1];
     let mut reader = BufReader::new(File::open(filename).unwrap());
-    let mut marc_reader = MarcReader::new(reader); 
-    let cap = 64 * 1024*1024;
+    let mut marc_reader = MarcReader::new(reader);
+    let cap = 64 * 1024 * 1024;
     let mut mem: Vec<u8> = Vec::with_capacity(cap);
     mem.resize(cap, 0);
     let mut num_records: usize = 0;
     while let Ok(Some(batch)) = marc_reader.read_batch(mem.as_mut_slice()) {
         num_records += batch.records.len();
+        for r in batch.records {
+            let _parsed_record = Record::new(&r);
+        }
         //      for r in batch.records {
         //        let l = r.header().record_length();
         //        assert!(r.header().record_length() == r.record_length());

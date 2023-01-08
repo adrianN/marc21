@@ -1,8 +1,8 @@
+use crate::util::parse_usize;
 use std::io::BufReader;
 use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom;
-use crate::util::parse_usize;
 
 pub struct MarcHeader<'s> {
     pub header: &'s [u8],
@@ -18,13 +18,23 @@ pub struct MarcRecordEntries<'s> {
     record_payload: &'s [u8],
 }
 
+pub enum RecordType {
+    Authority = b'z' as isize,
+}
+
 impl<'s> MarcHeader<'s> {
     pub fn record_length(&self) -> usize {
         parse_usize(&self.header[0..5])
     }
+    pub fn record_type(&self) -> RecordType {
+        match self.header[6] {
+            b'z' => RecordType::Authority,
+            _ => todo!(),
+        }
+    }
 }
 
-struct MarcDirectory<'s> {
+pub struct MarcDirectory<'s> {
     directory: &'s [u8],
 }
 
@@ -86,10 +96,14 @@ impl<'s> MarcRecord<'s> {
         &self.header
     }
 
+    pub fn data(&self) -> &[u8] {
+        &self.data
+    }
+
     pub fn record_length(&self) -> usize {
         self.data.len()
     }
-    fn directory(&self) -> MarcDirectory<'s> {
+    pub fn directory(&self) -> MarcDirectory<'s> {
         get_directory(self.data)
     }
 
@@ -103,6 +117,7 @@ impl<'s> MarcRecord<'s> {
     }
 }
 
+// Todo we want to be able to iter over this
 pub struct MarcRecordBatch<'s> {
     pub records: Vec<MarcRecord<'s>>,
 }
@@ -118,9 +133,11 @@ impl<R> MarcReader<R>
 where
     R: Read + Seek,
 {
-    // TODO maybe take R instead of BufReader 
-    pub fn new(reader : BufReader<R>) -> MarcReader<R> {
-      MarcReader { base_reader : reader }
+    // TODO maybe take R instead of BufReader
+    pub fn new(reader: BufReader<R>) -> MarcReader<R> {
+        MarcReader {
+            base_reader: reader,
+        }
     }
 
     pub fn read_batch<'s>(
@@ -153,13 +170,13 @@ where
         //self.base_reader.seek_relative(-24);
         // TODO seek_relative is unstable in my version of rust
         self.base_reader.seek(SeekFrom::Start(start_pos + i as u64));
-//        let num_bytes = records
-//            .iter()
-//            .map(|r| r.header().record_length())
-//            .sum::<usize>() as u64;
-//        let stream_pos = self.base_reader.stream_position().unwrap();
-//        let bytes_consumed = stream_pos - start_pos;
-//        assert!(bytes_consumed == (num_bytes));
+        //        let num_bytes = records
+        //            .iter()
+        //            .map(|r| r.header().record_length())
+        //            .sum::<usize>() as u64;
+        //        let stream_pos = self.base_reader.stream_position().unwrap();
+        //        let bytes_consumed = stream_pos - start_pos;
+        //        assert!(bytes_consumed == (num_bytes));
 
         Ok(Some(MarcRecordBatch { records: records }))
     }
