@@ -20,7 +20,7 @@ pub struct AuthorityRecordMeta {
     status: AuthorityRecordStatus,
     character_coding_scheme: AuthorityRecordCharacterCodingScheme,
     // TODO we probably want to use an arena for these
-    field_types: Vec<u16>,
+    field_types: Vec<usize>,
     field_offsets: Vec<usize>,
     field_lengths: Vec<usize>,
 }
@@ -30,6 +30,7 @@ pub struct AuthorityRecordMeta {
 impl AuthorityRecordMeta {
     pub fn new(r: &MarcRecord) -> AuthorityRecordMeta {
         let t = r.header().record_type();
+        assert!(t == RecordType::Authority);
 
         // todo check whether other record types than authority parse differently here
         // and maybe move stuff to MarcHeader
@@ -51,11 +52,19 @@ impl AuthorityRecordMeta {
 
         // todo the remaining fields of the header
 
-        let dir_len = r.directory();
+        let dir = r.directory();
+        let dir_len = dir.num_entries();
 
-        let mut field_types = Vec::new();
-        let mut field_offsets = Vec::new();
-        let mut field_lengths = Vec::new();
+        let mut field_types = Vec::with_capacity(dir_len);
+        let mut field_offsets = Vec::with_capacity(dir_len);
+        let mut field_lengths = Vec::with_capacity(dir_len);
+
+        for i in 0..dir_len {
+            let entry = dir.get_entry(i);
+            field_types.push(entry.entry_type());
+            field_offsets.push(entry.start());
+            field_lengths.push(entry.len());
+        }
 
         AuthorityRecordMeta {
             record_type: t,

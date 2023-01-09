@@ -18,6 +18,7 @@ pub struct MarcRecordEntries<'s> {
     record_payload: &'s [u8],
 }
 
+#[derive(std::cmp::PartialEq)]
 pub enum RecordType {
     Authority = b'z' as isize,
 }
@@ -34,12 +35,13 @@ impl<'s> MarcHeader<'s> {
     }
 }
 
+// todo we want to iter over this
 pub struct MarcDirectory<'s> {
     directory: &'s [u8],
 }
 
 #[derive(Debug)]
-struct MarcDirectoryEntryRef<'s> {
+pub struct MarcDirectoryEntryRef<'s> {
     entry: &'s [u8],
 }
 
@@ -56,12 +58,12 @@ impl<'s> MarcDirectoryEntryRef<'s> {
 }
 
 impl<'s> MarcDirectory<'s> {
-    fn get_entry(&self, i: usize) -> MarcDirectoryEntryRef {
+    pub fn get_entry(&self, i: usize) -> MarcDirectoryEntryRef {
         MarcDirectoryEntryRef {
             entry: &self.directory[12 * i..12 * (i + 1)],
         }
     }
-    fn num_entries(&self) -> usize {
+    pub fn num_entries(&self) -> usize {
         self.len() / 12
     }
     fn len(&self) -> usize {
