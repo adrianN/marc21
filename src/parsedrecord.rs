@@ -61,8 +61,8 @@ impl AuthorityRecordMeta {
         for i in 0..dir_len {
             let entry = dir.get_entry(i);
             field_types.push(entry.entry_type());
-            field_offsets.push(entry.start()+1); // skip the entry sep char
-            field_lengths.push(entry.len()-1);
+            field_offsets.push(entry.start() + 1); // skip the entry sep char
+            field_lengths.push(entry.len() - 1);
         }
 
         AuthorityRecordMeta {
@@ -88,9 +88,20 @@ pub struct RecordField<'s> {
     data: &'s [u8],
 }
 
+pub struct RecordSubField<'s> {
+    field_type: u8,
+    data: &'s [u8],
+}
+
+pub struct RecordSubFieldIter {}
+
 impl<'s> RecordField<'s> {
     pub fn data(&self) -> &str {
         std::str::from_utf8(self.data).unwrap()
+    }
+
+    pub fn subfield_iter(&self) -> RecordSubFieldIter {
+        todo!();
     }
 }
 
@@ -102,14 +113,28 @@ impl RecordMeta {
         }
     }
 
+    pub fn get_field_type(&self, idx: usize) -> usize {
+        match self {
+            Self::AuthorityMeta(record_meta) => record_meta.field_types[idx],
+        }
+    }
+
+    pub fn get_field_offset(&self, idx: usize) -> usize {
+        match self {
+            Self::AuthorityMeta(record_meta) => record_meta.field_offsets[idx],
+        }
+    }
+
+    pub fn get_field_length(&self, idx: usize) -> usize {
+        match self {
+            Self::AuthorityMeta(record_meta) => record_meta.field_lengths[idx],
+        }
+    }
+
     pub fn get_field<'s>(&self, idx: usize, record_data: &'s [u8]) -> RecordField<'s> {
-        let (field_type, field_offset, field_length) = match self {
-            Self::AuthorityMeta(record_meta) => (
-                record_meta.field_types[idx],
-                record_meta.field_offsets[idx],
-                record_meta.field_lengths[idx],
-            ),
-        };
+        let field_type = self.get_field_type(idx);
+        let field_offset = self.get_field_offset(idx);
+        let field_length = self.get_field_length(idx);
         RecordField {
             field_type: field_type,
             data: &record_data[field_offset..field_offset + field_length],
@@ -152,6 +177,11 @@ impl<'s> Iterator for RecordFieldIter<'s> {
             Some(field)
         }
     }
+}
+
+pub struct TypeFilterRecordFieldIter<'s> {
+    record: &'s Record,
+    idx: usize,
 }
 
 impl Record {
@@ -210,10 +240,13 @@ mod tests {
         let unparsed_record = MarcRecord::new(header, &str[24..]);
         let parsed_record = Record::new(&unparsed_record);
         assert_eq!(parsed_record.num_fields(), 18);
-        assert_eq!(parsed_record.field_iter().count(), parsed_record.num_fields());
+        assert_eq!(
+            parsed_record.field_iter().count(),
+            parsed_record.num_fields()
+        );
         let mut it = parsed_record.field_iter();
-        let first = it.next().ok_or_else(||"not enough elements")?;
-        let last = it.last().ok_or_else(||"not enough elements")?;
+        let first = it.next().ok_or_else(|| "not enough elements")?;
+        let last = it.last().ok_or_else(|| "not enough elements")?;
         assert_eq!(first.data(), "040000028");
         assert_eq!(last.data(), "  SswdisaA 302 D0(DE-588c)4000002-3");
         Ok(())
