@@ -26,6 +26,11 @@ pub enum RecordType {
 }
 
 impl<'s> MarcHeader<'s> {
+    pub fn new(data: &'s [u8]) -> MarcHeader {
+        assert!(data.len() == 24);
+        MarcHeader { header: data }
+    }
+
     pub fn record_length(&self) -> usize {
         parse_usize(&self.header[0..5])
     }
@@ -66,9 +71,9 @@ impl<'s> MarcDirectory<'s> {
         }
     }
     pub fn num_entries(&self) -> usize {
-        self.len() / 12
+        self.byte_len() / 12
     }
-    fn len(&self) -> usize {
+    pub fn byte_len(&self) -> usize {
         self.directory.len()
     }
 }
@@ -109,9 +114,10 @@ impl<'s> MarcRecord<'s> {
 
     pub fn entries(&self) -> MarcRecordEntries<'s> {
         let d = self.directory();
-        let d_len = d.len();
+        let d_len = d.byte_len();
         MarcRecordEntries {
             directory: d,
+            // TODO probably wrong 24
             record_payload: &self.data[24 + d_len..],
         }
     }

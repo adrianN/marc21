@@ -28,7 +28,7 @@ pub struct AuthorityRecordMeta {
 // TODO we could implement a builder pattern to reuse things we already
 // parsed during pre-filtering
 impl AuthorityRecordMeta {
-    pub fn new(r: &MarcRecord) -> AuthorityRecordMeta {
+    pub fn new(r: &MarcRecord, dir: &MarcDirectory) -> AuthorityRecordMeta {
         let t = r.header().record_type();
         assert!(t == RecordType::Authority);
 
@@ -52,7 +52,6 @@ impl AuthorityRecordMeta {
 
         // todo the remaining fields of the header
 
-        let dir = r.directory();
         let dir_len = dir.num_entries();
 
         let mut field_types = Vec::with_capacity(dir_len);
@@ -62,8 +61,8 @@ impl AuthorityRecordMeta {
         for i in 0..dir_len {
             let entry = dir.get_entry(i);
             field_types.push(entry.entry_type());
-            field_offsets.push(entry.start());
-            field_lengths.push(entry.len());
+            field_offsets.push(entry.start()+1); // skip the entry sep char
+            field_lengths.push(entry.len()-1);
         }
 
         AuthorityRecordMeta {
@@ -75,17 +74,51 @@ impl AuthorityRecordMeta {
             field_lengths: field_lengths,
         }
     }
+    pub fn num_fields(&self) -> usize {
+        self.field_types.len()
+    }
 }
 
 pub enum RecordMeta {
     AuthorityMeta(AuthorityRecordMeta),
 }
 
+pub struct RecordField<'s> {
+    field_type: usize,
+    data: &'s [u8],
+}
+
+impl<'s> RecordField<'s> {
+    pub fn data(&self) -> &str {
+        std::str::from_utf8(self.data).unwrap()
+    }
+}
+
 impl RecordMeta {
-    pub fn new(r: &MarcRecord) -> RecordMeta {
+    pub fn new(r: &MarcRecord, d: &MarcDirectory) -> RecordMeta {
         match r.header().record_type() {
-            RecordType::Authority => RecordMeta::AuthorityMeta(AuthorityRecordMeta::new(r)),
+            RecordType::Authority => RecordMeta::AuthorityMeta(AuthorityRecordMeta::new(r, d)),
             _ => todo!(),
+        }
+    }
+
+    pub fn get_field<'s>(&self, idx: usize, record_data: &'s [u8]) -> RecordField<'s> {
+        let (field_type, field_offset, field_length) = match self {
+            Self::AuthorityMeta(record_meta) => (
+                record_meta.field_types[idx],
+                record_meta.field_offsets[idx],
+                record_meta.field_lengths[idx],
+            ),
+        };
+        RecordField {
+            field_type: field_type,
+            data: &record_data[field_offset..field_offset + field_length],
+        }
+    }
+
+    pub fn num_fields(&self) -> usize {
+        match self {
+            Self::AuthorityMeta(record_meta) => record_meta.num_fields(),
         }
     }
 }
@@ -93,14 +126,96 @@ impl RecordMeta {
 pub struct Record {
     meta: RecordMeta,
     // Todo we definitely want to use an arena for this
-    data: Vec<u8>,
+    field_data: Vec<u8>,
+}
+
+pub struct RecordFieldIter<'s> {
+    record: &'s Record,
+    idx: usize,
+}
+
+impl<'s> RecordFieldIter<'s> {
+    pub fn new(r: &'s Record) -> RecordFieldIter<'s> {
+        RecordFieldIter { record: r, idx: 0 }
+    }
+}
+
+impl<'s> Iterator for RecordFieldIter<'s> {
+    type Item = RecordField<'s>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.idx >= self.record.num_fields() {
+            None
+        } else {
+            let field = self.record.get_field(self.idx);
+            self.idx += 1;
+            Some(field)
+        }
+    }
 }
 
 impl Record {
     pub fn new(r: &MarcRecord) -> Record {
+        let dir = r.directory();
         Record {
-            meta: RecordMeta::new(r),
-            data: r.data().to_vec(),
+            meta: RecordMeta::new(r, &dir),
+            field_data: r.data()[dir.byte_len()..].to_vec(),
         }
+    }
+    pub fn num_fields(&self) -> usize {
+        self.meta.num_fields()
+    }
+
+    pub fn get_field(&self, idx: usize) -> RecordField {
+        self.meta.get_field(idx, self.field_data())
+    }
+
+    fn field_data(&self) -> &[u8] {
+        &self.field_data
+    }
+
+    pub fn field_iter(&self) -> RecordFieldIter {
+        RecordFieldIter::new(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::MarcHeader;
+    use crate::MarcRecord;
+    use crate::Record;
+    #[test]
+    fn parse_one() -> Result<(), String> {
+        let str = "00827nz  a2200241nc 4500\
+001001000000\
+003000700010\
+005001700017\
+008004100034\
+024005100075\
+035002200126\
+035002200148\
+035002900170\
+040004000199\
+042000900239\
+065001600248\
+075001400264\
+079000900278\
+083004200287\
+150001200329\
+550019200341\
+670001200533\
+913004000545\
+040000028DE-10120100106125650.0880701n||azznnbabn           | ana    |c7 a4000002-30http://d-nb.info/gnd/4000002-32gnd  a(DE-101)040000028  a(DE-588)4000002-3  z(DE-588c)4000002-39v:zg  aDE-101cDE-1019r:DE-101bgerd0832  agnd1  a31.9b2sswd  bs2gndgen  agqs04a621.3815379d:29t:2010-01-06223/ger  aA 302 D  0(DE-101)0402724270(DE-588)4027242-40https://d-nb.info/gnd/4027242-4aIntegrierte Schaltung4obal4https://d-nb.info/standards/elementset/gnd#broaderTermGeneralwriOberbegriff allgemein  aVorlage  SswdisaA 302 D0(DE-588c)4000002-3".as_bytes();
+        let header = MarcHeader::new(&str[..24]);
+        let unparsed_record = MarcRecord::new(header, &str[24..]);
+        let parsed_record = Record::new(&unparsed_record);
+        assert_eq!(parsed_record.num_fields(), 18);
+        assert_eq!(parsed_record.field_iter().count(), parsed_record.num_fields());
+        let mut it = parsed_record.field_iter();
+        let first = it.next().ok_or_else(||"not enough elements")?;
+        let last = it.last().ok_or_else(||"not enough elements")?;
+        assert_eq!(first.data(), "040000028");
+        assert_eq!(last.data(), "  SswdisaA 302 D0(DE-588c)4000002-3");
+        Ok(())
     }
 }
