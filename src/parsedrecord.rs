@@ -157,11 +157,16 @@ pub struct Record {
 pub struct RecordFieldIter<'s> {
     record: &'s Record,
     idx: usize,
+    field_type: Option<usize>,
 }
 
 impl<'s> RecordFieldIter<'s> {
-    pub fn new(r: &'s Record) -> RecordFieldIter<'s> {
-        RecordFieldIter { record: r, idx: 0 }
+    pub fn new(r: &'s Record, field_type: Option<usize>) -> RecordFieldIter<'s> {
+        RecordFieldIter {
+            record: r,
+            idx: 0,
+            field_type: field_type,
+        }
     }
 }
 
@@ -169,19 +174,17 @@ impl<'s> Iterator for RecordFieldIter<'s> {
     type Item = RecordField<'s>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.idx >= self.record.num_fields() {
-            None
-        } else {
+        while self.idx < self.record.num_fields() {
+            // todo pushing the type check into get_field is a good
+            // optimization
             let field = self.record.get_field(self.idx);
             self.idx += 1;
-            Some(field)
+            if self.field_type.map_or(true, |t| t == field.field_type) {
+                return Some(field);
+            }
         }
+        None
     }
-}
-
-pub struct TypeFilterRecordFieldIter<'s> {
-    record: &'s Record,
-    idx: usize,
 }
 
 impl Record {
@@ -204,8 +207,8 @@ impl Record {
         &self.field_data
     }
 
-    pub fn field_iter(&self) -> RecordFieldIter {
-        RecordFieldIter::new(self)
+    pub fn field_iter(&self, field_type: Option<usize>) -> RecordFieldIter {
+        RecordFieldIter::new(self, field_type)
     }
 }
 
@@ -241,10 +244,11 @@ mod tests {
         let parsed_record = Record::new(&unparsed_record);
         assert_eq!(parsed_record.num_fields(), 18);
         assert_eq!(
-            parsed_record.field_iter().count(),
+            parsed_record.field_iter(None).count(),
             parsed_record.num_fields()
         );
-        let mut it = parsed_record.field_iter();
+        assert_eq!(parsed_record.field_iter(Some(35)).count(), 3);
+        let mut it = parsed_record.field_iter(None);
         let first = it.next().ok_or_else(|| "not enough elements")?;
         let last = it.last().ok_or_else(|| "not enough elements")?;
         assert_eq!(first.data(), "040000028");
