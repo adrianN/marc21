@@ -2,6 +2,7 @@ use std::env;
 use std::fs;
 use std::fs::File;
 use std::io::BufReader;
+pub mod filter;
 pub mod marcrecord;
 pub mod parsedrecord;
 pub mod util;
