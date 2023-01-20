@@ -38,26 +38,25 @@ fn main() {
     let mut mem: Vec<u8> = Vec::with_capacity(cap);
     mem.resize(cap, 0);
     let mut num_records: usize = 0;
-    while let Ok(Some(batch)) = marc_reader.read_batch(mem.as_mut_slice()) {
+    while let Ok(Some(mut batch)) = marc_reader.read_batch(mem.as_mut_slice()) {
         num_records += batch.records.len();
-        let mut parsed_records: Vec<ParsedRecord> =
-            batch.records.iter().map(|r| ParsedRecord::new(r)).collect();
+        //let mut parsed_records: Vec<ParsedRecord> =
+        //   batch.records.iter().map(|r| ParsedRecord::new(r)).collect();
         //for r in parsed_records.iter() {
         //  for f in r.field_iter(Some(150)) {
         //    dbg!(f.utf8_data());
         //  }
         //}
-        RegexFilter::new(Some(field_type), regex).filter(&mut parsed_records);
-        //        RegexFilter::new(Some(field_type),regex).filter(&mut batch.records);
-        for r in parsed_records {
-            print_record(r);
-            println!();
-        }
-        //for r in batch.records {
-        //    let parsed_record = Record::new(&r);
-        //    print_record(parsed_record);
-        //    break;
+        //RegexFilter::new(Some(field_type), regex).filter(&mut parsed_records);
+        //for r in parsed_records {
+        //    print_record(r);
+        //    println!();
         //}
+               RegexFilter::new(Some(field_type),regex).filter(&mut batch.records);
+       for r in batch.records {
+           print_record(r);
+            println!();
+       }
         //      for r in batch.records {
         //        let l = r.header().record_length();
         //        assert!(r.header().record_length() == r.record_length());

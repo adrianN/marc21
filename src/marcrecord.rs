@@ -119,8 +119,7 @@ impl<'s> MarcRecord<'s> {
         let d_len = d.byte_len();
         MarcRecordEntries {
             directory: d,
-            // TODO probably wrong 24
-            record_payload: &self.data[24 + d_len..],
+            record_payload: &self.data[ d_len..],
         }
     }
 }
