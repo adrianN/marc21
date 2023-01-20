@@ -1,10 +1,11 @@
-use regex::Regex;
+use regex::bytes::Regex;
 
 use crate::Record;
-trait Filter {
+
+pub trait Filter {
     //fn filter(values : &mut Vec<Record>);
-    fn evaluate_predicate(&self, r: &Record) -> bool;
-    fn filter(&self, values: &mut Vec<Record>) {
+    fn evaluate_predicate(&self, r: &impl Record) -> bool;
+    fn filter(&self, values: &mut Vec<impl Record>) {
         let mut ins = None;
         for i in 0..values.len() {
             if !self.evaluate_predicate(&values[i]) {
@@ -22,24 +23,24 @@ trait Filter {
     }
 }
 
-struct RegexFilter {
+pub struct RegexFilter {
     field_type: Option<usize>,
     regex: Regex,
 }
 
 impl RegexFilter {
-    pub fn new(field_type: Option<usize>, regex: Regex) -> RegexFilter {
+    pub fn new(field_type: Option<usize>, regex: &str) -> RegexFilter {
         RegexFilter {
             field_type: field_type,
-            regex: regex,
+            regex: Regex::new(regex).unwrap(),
         }
     }
 }
 
 impl Filter for RegexFilter {
-    fn evaluate_predicate(&self, r: &Record) -> bool {
+    fn evaluate_predicate(&self, r: &impl Record) -> bool {
         for field in r.field_iter(self.field_type) {
-            if self.regex.is_match(field.data()) {
+            if self.regex.is_match(field.data) {
                 return true;
             }
         }

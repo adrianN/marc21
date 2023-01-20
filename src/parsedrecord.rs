@@ -1,4 +1,5 @@
 use crate::marcrecord::*;
+use crate::record::*;
 
 pub enum AuthorityRecordStatus {
     IncreaseEncodingLevel = b'a' as isize,
@@ -83,28 +84,6 @@ pub enum RecordMeta {
     AuthorityMeta(AuthorityRecordMeta),
 }
 
-pub struct RecordField<'s> {
-    field_type: usize,
-    data: &'s [u8],
-}
-
-pub struct RecordSubField<'s> {
-    field_type: u8,
-    data: &'s [u8],
-}
-
-pub struct RecordSubFieldIter {}
-
-impl<'s> RecordField<'s> {
-    pub fn data(&self) -> &str {
-        std::str::from_utf8(self.data).unwrap()
-    }
-
-    pub fn subfield_iter(&self) -> RecordSubFieldIter {
-        todo!();
-    }
-}
-
 impl RecordMeta {
     pub fn new(r: &MarcRecord, d: &MarcDirectory) -> RecordMeta {
         match r.header().record_type() {
@@ -148,21 +127,48 @@ impl RecordMeta {
     }
 }
 
-pub struct Record {
+pub struct ParsedRecord {
     meta: RecordMeta,
     // Todo we definitely want to use an arena for this
     field_data: Vec<u8>,
 }
 
-pub struct RecordFieldIter<'s> {
-    record: &'s Record,
+impl ParsedRecord {
+    pub fn new(r: &MarcRecord) -> ParsedRecord {
+        let dir = r.directory();
+        ParsedRecord {
+            meta: RecordMeta::new(r, &dir),
+            field_data: r.data()[dir.byte_len()..].to_vec(),
+        }
+    }
+
+    fn field_data(&self) -> &[u8] {
+        &self.field_data
+    }
+    pub fn num_fields(&self) -> usize {
+        self.meta.num_fields()
+    }
+
+    pub fn get_field(&self, idx: usize) -> RecordField {
+        self.meta.get_field(idx, self.field_data())
+    }
+}
+
+impl Record for ParsedRecord {
+    fn field_iter(&self, field_type: Option<usize>) -> Box<dyn Iterator<Item = RecordField> + '_> {
+        Box::new(ParsedRecordFieldIter::new(self, field_type))
+    }
+}
+
+pub struct ParsedRecordFieldIter<'s> {
+    record: &'s ParsedRecord,
     idx: usize,
     field_type: Option<usize>,
 }
 
-impl<'s> RecordFieldIter<'s> {
-    pub fn new(r: &'s Record, field_type: Option<usize>) -> RecordFieldIter<'s> {
-        RecordFieldIter {
+impl<'s> ParsedRecordFieldIter<'s> {
+    pub fn new(r: &'s ParsedRecord, field_type: Option<usize>) -> ParsedRecordFieldIter<'s> {
+        ParsedRecordFieldIter {
             record: r,
             idx: 0,
             field_type: field_type,
@@ -170,7 +176,7 @@ impl<'s> RecordFieldIter<'s> {
     }
 }
 
-impl<'s> Iterator for RecordFieldIter<'s> {
+impl<'s> Iterator for ParsedRecordFieldIter<'s> {
     type Item = RecordField<'s>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -187,36 +193,11 @@ impl<'s> Iterator for RecordFieldIter<'s> {
     }
 }
 
-impl Record {
-    pub fn new(r: &MarcRecord) -> Record {
-        let dir = r.directory();
-        Record {
-            meta: RecordMeta::new(r, &dir),
-            field_data: r.data()[dir.byte_len()..].to_vec(),
-        }
-    }
-    pub fn num_fields(&self) -> usize {
-        self.meta.num_fields()
-    }
-
-    pub fn get_field(&self, idx: usize) -> RecordField {
-        self.meta.get_field(idx, self.field_data())
-    }
-
-    fn field_data(&self) -> &[u8] {
-        &self.field_data
-    }
-
-    pub fn field_iter(&self, field_type: Option<usize>) -> RecordFieldIter {
-        RecordFieldIter::new(self, field_type)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use crate::MarcHeader;
     use crate::MarcRecord;
-    use crate::Record;
+    use crate::ParsedRecord;
     #[test]
     fn parse_one() -> Result<(), String> {
         let str = "00827nz  a2200241nc 4500\

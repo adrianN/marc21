@@ -4,6 +4,8 @@ use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom;
 
+use crate::record::*;
+
 #[derive(Debug)]
 pub struct MarcHeader<'s> {
     pub header: &'s [u8],
@@ -121,6 +123,52 @@ impl<'s> MarcRecord<'s> {
             record_payload: &self.data[24 + d_len..],
         }
     }
+}
+
+pub struct MarcRecordFieldIter<'s> {
+    entries: MarcRecordEntries<'s>,
+    idx: usize,
+    field_type: Option<usize>,
+}
+
+impl<'s> MarcRecordFieldIter<'s> {
+    pub fn new(r: &'s MarcRecord, field_type: Option<usize>) -> MarcRecordFieldIter<'s> {
+        MarcRecordFieldIter {
+            entries: r.entries(),
+            idx: 0,
+            field_type: field_type,
+        }
+    }
+}
+
+impl<'s> Iterator for MarcRecordFieldIter<'s> {
+    type Item = RecordField<'s>;
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.idx < self.entries.directory.num_entries() {
+            let entry_ref = self.entries.directory.get_entry(self.idx);
+            self.idx += 1;
+            let entry_type = entry_ref.entry_type();
+            if self
+                .field_type
+                .map_or(true, |t| t == entry_ref.entry_type())
+            {
+                let start = entry_ref.start();
+                return Some(RecordField {
+                    field_type: entry_type,
+                    data: &self.entries.record_payload[start..start + entry_ref.len()],
+                });
+            }
+        }
+        None
+    }
+}
+
+impl<'s> Record for MarcRecord<'s> {
+    fn field_iter(&self, field_type: Option<usize>) -> Box<dyn Iterator<Item = RecordField> + '_> {
+        Box::new(MarcRecordFieldIter::new(&self, field_type))
+    }
+    //  fn num_fields(&self) -> usize { todo!() }
+    //  fn get_field(&self, idx:usize) -> RecordField { todo!() }
 }
 
 // Todo we want to be able to iter over this

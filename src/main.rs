@@ -5,12 +5,15 @@ use std::io::BufReader;
 pub mod filter;
 pub mod marcrecord;
 pub mod parsedrecord;
+pub mod record;
 pub mod util;
 
+use filter::*;
 use marcrecord::MarcHeader;
 use marcrecord::MarcReader;
 use marcrecord::MarcRecord;
 use parsedrecord::*;
+use record::*;
 
 fn get_header(data: &[u8]) -> MarcHeader {
     MarcHeader {
@@ -18,9 +21,17 @@ fn get_header(data: &[u8]) -> MarcHeader {
     }
 }
 
+fn print_record(r: impl Record) {
+    for field in r.field_iter(None) {
+        println!("{}\t{}", field.field_type, field.utf8_data());
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     let filename = &args[1];
+    let field_type = args[2].parse::<usize>().unwrap();
+    let regex = &args[3];
     let mut reader = BufReader::new(File::open(filename).unwrap());
     let mut marc_reader = MarcReader::new(reader);
     let cap = 64 * 1024 * 1024;
@@ -29,9 +40,24 @@ fn main() {
     let mut num_records: usize = 0;
     while let Ok(Some(batch)) = marc_reader.read_batch(mem.as_mut_slice()) {
         num_records += batch.records.len();
-        for r in batch.records {
-            let _parsed_record = Record::new(&r);
+        let mut parsed_records: Vec<ParsedRecord> =
+            batch.records.iter().map(|r| ParsedRecord::new(r)).collect();
+        //for r in parsed_records.iter() {
+        //  for f in r.field_iter(Some(150)) {
+        //    dbg!(f.utf8_data());
+        //  }
+        //}
+        RegexFilter::new(Some(field_type), regex).filter(&mut parsed_records);
+        //        RegexFilter::new(Some(field_type),regex).filter(&mut batch.records);
+        for r in parsed_records {
+            print_record(r);
+            println!();
         }
+        //for r in batch.records {
+        //    let parsed_record = Record::new(&r);
+        //    print_record(parsed_record);
+        //    break;
+        //}
         //      for r in batch.records {
         //        let l = r.header().record_length();
         //        assert!(r.header().record_length() == r.record_length());
