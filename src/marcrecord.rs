@@ -119,7 +119,7 @@ impl<'s> MarcRecord<'s> {
         let d_len = d.byte_len();
         MarcRecordEntries {
             directory: d,
-            record_payload: &self.data[ d_len..],
+            record_payload: &self.data[d_len..],
         }
     }
 }
@@ -151,10 +151,11 @@ impl<'s> Iterator for MarcRecordFieldIter<'s> {
                 .field_type
                 .map_or(true, |t| t == entry_ref.entry_type())
             {
-                let start = entry_ref.start();
+                // +1 because we want to skip the field separator
+                let start = entry_ref.start() + 1;
                 return Some(RecordField {
                     field_type: entry_type,
-                    data: &self.entries.record_payload[start..start + entry_ref.len()],
+                    data: &self.entries.record_payload[start..start + entry_ref.len() - 1], // -1 because we skipped the field separator
                 });
             }
         }
@@ -240,14 +241,13 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::record::*;
     use crate::MarcReader;
     use std::io::BufReader;
     use std::io::Cursor;
     use std::io::Seek;
     use std::io::SeekFrom;
-    #[test]
-    fn read_one() -> Result<(), String> {
-        let str = "00827nz  a2200241nc 4500\
+    static str : &[u8]= "00827nz  a2200241nc 4500\
 001001000000\
 003000700010\
 005001700017\
@@ -267,6 +267,8 @@ mod tests {
 670001200533\
 913004000545\
 040000028DE-10120100106125650.0880701n||azznnbabn           | ana    |c7 a4000002-30http://d-nb.info/gnd/4000002-32gnd  a(DE-101)040000028  a(DE-588)4000002-3  z(DE-588c)4000002-39v:zg  aDE-101cDE-1019r:DE-101bgerd0832  agnd1  a31.9b2sswd  bs2gndgen  agqs04a621.3815379d:29t:2010-01-06223/ger  aA 302 D  0(DE-101)0402724270(DE-588)4027242-40https://d-nb.info/gnd/4027242-4aIntegrierte Schaltung4obal4https://d-nb.info/standards/elementset/gnd#broaderTermGeneralwriOberbegriff allgemein  aVorlage  SswdisaA 302 D0(DE-588c)4000002-3".as_bytes();
+    #[test]
+    fn read_one() -> Result<(), String> {
         dbg!(str.len());
         let c = Cursor::new(str);
         let mut breader = BufReader::new(c);
@@ -300,6 +302,11 @@ mod tests {
                     assert_eq!(entry.len(), entry_lengths[i], "i {}", i);
                     assert_eq!(entry.start(), entry_starts[i], "i {}", i);
                 }
+                let mut it = record.field_iter(None);
+                let first = it.next().ok_or_else(|| "not enough elements")?;
+                let last = it.last().ok_or_else(|| "not enough elements")?;
+                assert_eq!(first.utf8_data(), "040000028");
+                assert_eq!(last.utf8_data(), "  SswdisaA 302 D0(DE-588c)4000002-3");
                 Ok(())
             }
             _ => Err("something bad".to_string()),

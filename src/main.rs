@@ -52,11 +52,11 @@ fn main() {
         //    print_record(r);
         //    println!();
         //}
-               RegexFilter::new(Some(field_type),regex).filter(&mut batch.records);
-       for r in batch.records {
-           print_record(r);
+        RegexFilter::new(Some(field_type), regex).filter(&mut batch.records);
+        for r in batch.records {
+            print_record(r);
             println!();
-       }
+        }
         //      for r in batch.records {
         //        let l = r.header().record_length();
         //        assert!(r.header().record_length() == r.record_length());
