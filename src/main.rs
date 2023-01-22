@@ -53,9 +53,13 @@ fn main() {
         //    println!();
         //}
         RegexFilter::new(Some(field_type), regex).filter(&mut batch.records);
+        let mut stdout = std::io::stdout();
+        use std::io::Write;
         for r in batch.records {
-            print_record(r);
-            println!();
+            //            print_record(r);
+            //println!();
+            r.to_marc21(&mut stdout);
+            stdout.write(b"\n");
         }
         //      for r in batch.records {
         //        let l = r.header().record_length();

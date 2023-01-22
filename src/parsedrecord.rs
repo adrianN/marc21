@@ -158,6 +158,10 @@ impl Record for ParsedRecord {
     fn field_iter(&self, field_type: Option<usize>) -> Box<dyn Iterator<Item = RecordField> + '_> {
         Box::new(ParsedRecordFieldIter::new(self, field_type))
     }
+
+    fn to_marc21<T: std::io::Write>(&self, writer: &mut T) -> std::io::Result<()> {
+        todo!()
+    }
 }
 
 pub struct ParsedRecordFieldIter<'s> {

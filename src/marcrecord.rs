@@ -167,8 +167,12 @@ impl<'s> Record for MarcRecord<'s> {
     fn field_iter(&self, field_type: Option<usize>) -> Box<dyn Iterator<Item = RecordField> + '_> {
         Box::new(MarcRecordFieldIter::new(&self, field_type))
     }
-    //  fn num_fields(&self) -> usize { todo!() }
-    //  fn get_field(&self, idx:usize) -> RecordField { todo!() }
+
+    fn to_marc21<T: std::io::Write>(&self, writer: &mut T) -> std::io::Result<()> {
+        writer.write(self.header().header)?;
+        writer.write(self.data);
+        Ok(())
+    }
 }
 
 // Todo we want to be able to iter over this
@@ -267,6 +271,7 @@ mod tests {
 670001200533\
 913004000545\
 040000028DE-10120100106125650.0880701n||azznnbabn           | ana    |c7 a4000002-30http://d-nb.info/gnd/4000002-32gnd  a(DE-101)040000028  a(DE-588)4000002-3  z(DE-588c)4000002-39v:zg  aDE-101cDE-1019r:DE-101bgerd0832  agnd1  a31.9b2sswd  bs2gndgen  agqs04a621.3815379d:29t:2010-01-06223/ger  aA 302 D  0(DE-101)0402724270(DE-588)4027242-40https://d-nb.info/gnd/4027242-4aIntegrierte Schaltung4obal4https://d-nb.info/standards/elementset/gnd#broaderTermGeneralwriOberbegriff allgemein  aVorlage  SswdisaA 302 D0(DE-588c)4000002-3".as_bytes();
+
     #[test]
     fn read_one() -> Result<(), String> {
         dbg!(str.len());
@@ -307,6 +312,27 @@ mod tests {
                 let last = it.last().ok_or_else(|| "not enough elements")?;
                 assert_eq!(first.utf8_data(), "040000028");
                 assert_eq!(last.utf8_data(), "  SswdisaA 302 D0(DE-588c)4000002-3");
+                Ok(())
+            }
+            _ => Err("something bad".to_string()),
+        }
+    }
+
+    #[test]
+    fn conv_back() -> Result<(), String> {
+        let c = Cursor::new(str);
+        let mut breader = BufReader::new(c);
+        let mut mreader = MarcReader::new(breader);
+        let mut v: Vec<u8> = Vec::new();
+        v.resize(10000, 0);
+        let r = mreader.read_batch(&mut v);
+        match r {
+            Ok(Some(batch)) => {
+                assert_eq!(batch.records.len(), 1);
+                let record = &batch.records[0];
+                let mut result: Vec<u8> = Vec::new();
+                record.to_marc21(&mut result);
+                assert_eq!(result, str);
                 Ok(())
             }
             _ => Err("something bad".to_string()),

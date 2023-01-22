@@ -13,6 +13,6 @@ pub trait Record {
     // todo nightly features might avoid the box
     // https://stackoverflow.com/questions/39482131/is-it-possible-to-use-impl-trait-as-a-functions-return-type-in-a-trait-defini/39490692#39490692
     fn field_iter(&self, field_type: Option<usize>) -> Box<dyn Iterator<Item = RecordField> + '_>;
-    //fn num_fields(&self) -> usize;
-    //fn get_field(&self, idx:usize) -> RecordField;
+
+    fn to_marc21<T: std::io::Write>(&self, writer: &mut T) -> std::io::Result<()>;
 }
