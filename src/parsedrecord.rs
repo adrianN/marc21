@@ -159,7 +159,7 @@ impl Record for ParsedRecord {
         Box::new(ParsedRecordFieldIter::new(self, field_type))
     }
 
-    fn to_marc21<T: std::io::Write>(&self, writer: &mut T) -> std::io::Result<()> {
+    fn to_marc21(&self, writer: &mut dyn std::io::Write) -> std::io::Result<()> {
         todo!()
     }
 }

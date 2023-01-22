@@ -21,7 +21,7 @@ fn get_header(data: &[u8]) -> MarcHeader {
     }
 }
 
-fn print_record(r: impl Record) {
+fn print_record(r: &dyn Record) {
     for field in r.field_iter(None) {
         println!("{}\t{}", field.field_type, field.utf8_data());
     }
@@ -52,14 +52,24 @@ fn main() {
         //    print_record(r);
         //    println!();
         //}
-        RegexFilter::new(Some(field_type), regex).filter(&mut batch.records);
+        //RegexFilter::new(Some(field_type), regex).filter(&mut batch.records);
+        let mut boxs: Vec<Box<dyn Record>> = batch
+            .records
+            .into_iter()
+            .map(|x| -> Box<dyn Record> { Box::new(x) })
+            .collect();
+        let regexFilter = Box::new(RegexFilter::new(Some(field_type), regex));
+        let regexFilter2 = Box::new(RegexFilter::new(Some(150), "Katze"));
+        let i = OrFilter::new(vec![regexFilter, regexFilter2]).filter(&mut boxs);
+        //let i = RegexFilter::new(Some(field_type), regex).filter(&mut boxs);
         let mut stdout = std::io::stdout();
         use std::io::Write;
-        for r in batch.records {
-            //            print_record(r);
-            //println!();
-            r.to_marc21(&mut stdout);
-            stdout.write(b"\n");
+        for r in boxs.into_iter().take(i) {
+            //for r in batch.records {
+            print_record(&*r);
+            println!();
+            //r.to_marc21(&mut stdout);
+            //stdout.write(b"\n");
         }
         //      for r in batch.records {
         //        let l = r.header().record_length();
