@@ -39,6 +39,26 @@ impl<'a> ParseNode<'a> {
             context: ctx,
         }
     }
+
+    pub fn visit_pre<F>(&self, visitor: &mut F)
+    where
+        F: FnMut(&ParseNode<'a>) -> (),
+    {
+        visitor(self);
+        for c in &self.children {
+            c.visit_pre(visitor);
+        }
+    }
+
+    pub fn visit_post<F>(&self, visitor: &mut F)
+    where
+        F: FnMut(&ParseNode<'a>) -> (),
+    {
+        for c in &self.children {
+            c.visit_post(visitor);
+        }
+        visitor(self);
+    }
 }
 
 fn extract_regex_str(input: &str) -> Result<(usize, &str), ()> {
@@ -51,7 +71,7 @@ fn extract_regex_str(input: &str) -> Result<(usize, &str), ()> {
             }
             '\'' => {
                 if !escaped {
-                    return Ok((i + 2, &input[..i + 2]));
+                    return Ok((i + 2, &input[1..i + 1]));
                 }
                 escaped = false;
             }
@@ -266,19 +286,19 @@ mod tests {
     fn test_extract_regex_str() -> Result<(), ()> {
         let (i1, str1) = extract_regex_str("'aoeu'")?;
         assert_eq!(i1, 6);
-        assert_eq!(str1, "'aoeu'");
+        assert_eq!(str1, "aoeu");
         let (i1, str1) = extract_regex_str(r"'ao\'eu'")?;
         assert_eq!(i1, 8);
-        assert_eq!(str1, r"'ao\'eu'");
+        assert_eq!(str1, r"ao\'eu");
         let (i1, str1) = extract_regex_str(r"'ao\eu'")?;
         assert_eq!(i1, 7);
-        assert_eq!(str1, r"'ao\eu'");
+        assert_eq!(str1, r"ao\eu");
         let (i1, str1) = extract_regex_str(r"'ao\\'eu'")?;
         assert_eq!(i1, 6);
-        assert_eq!(str1, r"'ao\\'");
+        assert_eq!(str1, r"ao\\");
         let (i1, str1) = extract_regex_str(r"'ao\\\'eu'")?;
         assert_eq!(i1, 10);
-        assert_eq!(str1, r"'ao\\\'eu'");
+        assert_eq!(str1, r"ao\\\'eu");
         Ok(())
     }
 
@@ -295,7 +315,7 @@ mod tests {
                     (ItemContext(2), LexItem::Or),
                     (ItemContext(6), LexItem::And),
                     (ItemContext(11), LexItem::MatchOp),
-                    (ItemContext(14), LexItem::RegexStr("\'aoeu\'")),
+                    (ItemContext(14), LexItem::RegexStr("aoeu")),
                     (
                         ItemContext(20),
                         LexItem::FieldRef(Some("a"), Some("123"), Some("b"))
@@ -326,8 +346,12 @@ mod tests {
             p.children[0].entry,
             LexItem::FieldRef(None, Some("150"), None)
         );
-        assert_eq!(p.children[1].entry, LexItem::RegexStr("'aoeu'"));
+        assert_eq!(p.children[1].entry, LexItem::RegexStr("aoeu"));
+        Ok(())
+    }
 
+    #[test]
+    fn test_parse2() -> Result<(), String> {
         let str1 = "not  150 ~ 'aoeu'";
         let p = parse(str1)?;
         assert_eq!(p.entry, LexItem::Not);
@@ -339,15 +363,112 @@ mod tests {
         assert_eq!(p2.children.len(), 1);
 
         assert_eq!(p, p2);
+        Ok(())
+    }
 
-        let str1 = "150 ~ 'aoeu' and 150 ~ 'bcd'";
+    #[test]
+    fn test_parse3() -> Result<(), String> {
+        let str1 = "150 ~ 'aoeu' and 151 ~ 'bcd'";
         let p = parse(str1);
-        /*
-        Ok(ParseNode { entry: And, context: ItemContext(13), children: [ParseNode { entry: MatchOp, context: ItemContext(4), children: [ParseNode { entry: FieldRef(None, Some("150"), None), context: ItemContext(0), children: [] }, ParseNode { entry: RegexStr("\'aoeu\'"), context: ItemContext(6), children: [] }] },
-        ParseNode { entry: MatchOp, context: ItemContext(21), children: [ParseNode { entry: FieldRef(None, Some("150"), None), context: ItemContext(17), children: [] }, ParseNode { entry: RegexStr("\'bcd\'"), context: ItemContext(23), children: [] }] }] })`,
-        */
-
         assert!(p.is_ok());
+        let p = p.unwrap();
+        {
+            let mut v: Vec<LexItem<'static>> = Vec::new();
+            let mut visitor = |n: &ParseNode<'static>| {
+                let e = n.entry.clone();
+                v.push(e);
+            };
+            p.visit_pre(&mut visitor);
+            assert_eq!(
+                v,
+                vec![
+                    LexItem::And,
+                    LexItem::MatchOp,
+                    LexItem::FieldRef(None, Some("150"), None),
+                    LexItem::RegexStr("aoeu"),
+                    LexItem::MatchOp,
+                    LexItem::FieldRef(None, Some("151"), None),
+                    LexItem::RegexStr("bcd")
+                ]
+            );
+        }
+        {
+            let mut v: Vec<LexItem<'static>> = Vec::new();
+            let mut visitor = |n: &ParseNode<'static>| {
+                let e = n.entry.clone();
+                v.push(e);
+            };
+            p.visit_post(&mut visitor);
+            assert_eq!(
+                v,
+                vec![
+                    LexItem::FieldRef(None, Some("150"), None),
+                    LexItem::RegexStr("aoeu"),
+                    LexItem::MatchOp,
+                    LexItem::FieldRef(None, Some("151"), None),
+                    LexItem::RegexStr("bcd"),
+                    LexItem::MatchOp,
+                    LexItem::And
+                ]
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_parse4() -> Result<(), String> {
+        let str1 = "150 ~ 'aoeu' and 151 ~ 'bcd' and 152 ~ 'efg'";
+        let p = parse(str1);
+        assert!(p.is_ok());
+        let p = p.unwrap();
+        {
+            let mut v: Vec<LexItem<'static>> = Vec::new();
+            let mut visitor = |n: &ParseNode<'static>| {
+                let e = n.entry.clone();
+                v.push(e);
+            };
+            p.visit_pre(&mut visitor);
+            assert_eq!(
+                v,
+                vec![
+                    LexItem::And,
+                    LexItem::MatchOp,
+                    LexItem::FieldRef(None, Some("150"), None),
+                    LexItem::RegexStr("aoeu"),
+                    LexItem::And,
+                    LexItem::MatchOp,
+                    LexItem::FieldRef(None, Some("151"), None),
+                    LexItem::RegexStr("bcd"),
+                    LexItem::MatchOp,
+                    LexItem::FieldRef(None, Some("152"), None),
+                    LexItem::RegexStr("efg")
+                ]
+            );
+        }
+        {
+            let mut v: Vec<LexItem<'static>> = Vec::new();
+            let mut visitor = |n: &ParseNode<'static>| {
+                let e = n.entry.clone();
+                v.push(e);
+            };
+            p.visit_post(&mut visitor);
+            assert_eq!(
+                v,
+                vec![
+                    LexItem::FieldRef(None, Some("150"), None),
+                    LexItem::RegexStr("aoeu"),
+                    LexItem::MatchOp,
+                    LexItem::FieldRef(None, Some("151"), None),
+                    LexItem::RegexStr("bcd"),
+                    LexItem::MatchOp,
+                    LexItem::FieldRef(None, Some("152"), None),
+                    LexItem::RegexStr("efg"),
+                    LexItem::MatchOp,
+                    LexItem::And,
+                    LexItem::And
+                ]
+            );
+        }
         Ok(())
     }
 }
