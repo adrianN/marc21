@@ -7,6 +7,7 @@ NOT -> not expr | ( expr )
 x and y or z -> (x and y) or z
 */
 
+use crate::filter::*;
 use regex::Regex;
 use std::cmp::{max, min};
 
@@ -23,6 +24,11 @@ pub enum LexItem<'a> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ItemContext(usize);
+
+pub trait ParseTreeVisitor<'a> {
+    fn pre(&mut self, node: &ParseNode<'a>) -> bool;
+    fn post(&mut self, node: &ParseNode<'a>) -> bool;
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParseNode<'a> {
@@ -58,6 +64,18 @@ impl<'a> ParseNode<'a> {
             c.visit_post(visitor);
         }
         visitor(self);
+    }
+
+    pub fn visit(&self, visitor: &mut impl ParseTreeVisitor<'a>) -> bool {
+        if !visitor.pre(self) {
+            return false;
+        }
+        for c in &self.children {
+            if !c.visit(visitor) {
+                return false;
+            }
+        }
+        visitor.post(self)
     }
 }
 

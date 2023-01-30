@@ -1,8 +1,9 @@
 use regex::bytes::Regex;
+use std::any::Any;
 
 use crate::Record;
 
-pub trait Filter {
+pub trait Filter: Any {
     //fn filter(values : &mut Vec<Record>);
     fn evaluate_predicate<'a>(&self, r: &Box<dyn Record + 'a>) -> bool;
     fn filter<'a>(&self, values: &mut [Box<dyn Record + 'a>]) -> usize {
@@ -19,6 +20,7 @@ pub trait Filter {
         }
         ins.unwrap_or(values.len())
     }
+    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>>;
 }
 
 pub struct RegexFilter {
@@ -44,6 +46,9 @@ impl Filter for RegexFilter {
         }
         return false;
     }
+    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
+        None
+    }
 }
 
 pub struct AndFilter {
@@ -65,10 +70,13 @@ impl Filter for AndFilter {
         }
         true
     }
+    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
+        Some(&mut self.children)
+    }
 }
 
 pub struct OrFilter {
-    children: Vec<Box<dyn Filter>>,
+    pub children: Vec<Box<dyn Filter>>,
 }
 
 impl OrFilter {
@@ -86,4 +94,23 @@ impl Filter for OrFilter {
         }
         false
     }
+    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
+        Some(&mut self.children)
+    }
+}
+
+pub struct NotFilter {
+    child : Box<dyn Filter>
+}
+
+impl NotFilter {
+    pub fn new(child : Box<dyn Filter>) -> NotFilter { NotFilter { child : child }}
+}
+
+impl Filter for NotFilter {
+  fn evaluate_predicate<'a>(& self, r : &Box<dyn Record + 'a>) -> bool {
+      !self.child.evaluate_predicate(r)
+  }
+
+  fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> { None }
 }
