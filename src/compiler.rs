@@ -22,7 +22,7 @@ impl TranslationVisitor {
 
 impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
     fn pre(&mut self, node: &ParseNode) -> bool {
-        node.entry != LexItem::MatchOp
+        true
     }
 
     fn post(&mut self, node: &ParseNode) -> bool {
@@ -62,28 +62,42 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 true
             }
             LexItem::MatchOp => {
-              let children : Vec<LexItem> = node.children.iter().map(|x| { x.entry.clone() }).collect();
-              assert!(children.len() == 2);
-              if let LexItem::FieldRef(_, field_type, _) = children[0] {
-                if let LexItem::RegexStr(regexstr) = children[1] {
-                  self.exprs.push(Box::new(RegexFilter::new(field_type.map(|x| { x.parse::<usize>().unwrap() } ), regexstr)));
+                let children: Vec<LexItem> =
+                    node.children.iter().map(|x| x.entry.clone()).collect();
+                assert!(children.len() == 2);
+                if let LexItem::FieldRef(_, field_type, _) = children[0] {
+                    if let LexItem::RegexStr(regexstr) = children[1] {
+                        self.exprs.push(Box::new(RegexFilter::new(
+                            field_type.map(|x| x.parse::<usize>().unwrap()),
+                            regexstr,
+                        )));
+                    } else {
+                        assert!(false);
+                    }
                 } else {
-                  assert!(false);
+                    assert!(false);
                 }
-              } else {
-                assert!(false);
-              }
-              true
-              
-            }    
-            LexItem::Not => {
-              let argument = self.exprs.pop().unwrap();
-              self.exprs.push(Box::new(NotFilter::new(argument)));
-              true
+                true
             }
-            LexItem::Paren => { unreachable!(); } 
-            LexItem::RegexStr(_) => {unreachable!(); }
-            LexItem::FieldRef(_,_,_) => {unreachable!(); }
+            LexItem::Not => {
+                let argument = self.exprs.pop().unwrap();
+                self.exprs.push(Box::new(NotFilter::new(argument)));
+                true
+            }
+            LexItem::Paren => {
+                unreachable!();
+            }
+            LexItem::RegexStr(_) => true,
+            LexItem::FieldRef(_, _, _) => true,
         }
     }
+}
+
+pub fn compile(input: &str) -> Result<Box<dyn Filter>, String> {
+    let parsetree = parse(input)?;
+    let mut visitor = TranslationVisitor::new();
+    parsetree.visit(&mut visitor);
+    dbg!(visitor.exprs.len());
+    assert!(visitor.exprs.len() == 1);
+    Ok(visitor.exprs.pop().unwrap())
 }

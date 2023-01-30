@@ -100,17 +100,21 @@ impl Filter for OrFilter {
 }
 
 pub struct NotFilter {
-    child : Box<dyn Filter>
+    child: Box<dyn Filter>,
 }
 
 impl NotFilter {
-    pub fn new(child : Box<dyn Filter>) -> NotFilter { NotFilter { child : child }}
+    pub fn new(child: Box<dyn Filter>) -> NotFilter {
+        NotFilter { child: child }
+    }
 }
 
 impl Filter for NotFilter {
-  fn evaluate_predicate<'a>(& self, r : &Box<dyn Record + 'a>) -> bool {
-      !self.child.evaluate_predicate(r)
-  }
+    fn evaluate_predicate<'a>(&self, r: &Box<dyn Record + 'a>) -> bool {
+        !self.child.evaluate_predicate(r)
+    }
 
-  fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> { None }
+    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
+        None
+    }
 }
