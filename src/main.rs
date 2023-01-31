@@ -36,8 +36,7 @@ fn main() -> Result<(), String> {
     let reader = BufReader::new(File::open(filename).unwrap());
     let mut marc_reader = MarcReader::new(reader);
     let cap = 64 * 1024 * 1024;
-    let mut mem: Vec<u8> = Vec::with_capacity(cap);
-    mem.resize(cap, 0);
+    let mut mem: Vec<u8> = vec![0; cap];
     let filter = compiler::compile(filter_str)?;
     while let Ok(Some(batch)) = marc_reader.read_batch(mem.as_mut_slice()) {
         let mut boxs: Vec<Box<dyn Record>> = batch

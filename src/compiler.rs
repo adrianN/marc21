@@ -72,10 +72,10 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                             regexstr,
                         )));
                     } else {
-                        assert!(false);
+                        unreachable!();
                     }
                 } else {
-                    assert!(false);
+                    unreachable!();
                 }
                 true
             }

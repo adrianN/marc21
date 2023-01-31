@@ -135,7 +135,7 @@ impl<'s> MarcRecordFieldIter<'s> {
         MarcRecordFieldIter {
             entries: r.entries(),
             idx: 0,
-            field_type: field_type,
+            field_type,
         }
     }
 }
@@ -239,7 +239,7 @@ where
         //        let bytes_consumed = stream_pos - start_pos;
         //        assert!(bytes_consumed == (num_bytes));
 
-        Ok(Some(MarcRecordBatch { records: records }))
+        Ok(Some(MarcRecordBatch { records }))
     }
 }
 

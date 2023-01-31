@@ -5,11 +5,11 @@ use crate::Record;
 
 pub trait Filter: Any {
     //fn filter(values : &mut Vec<Record>);
-    fn evaluate_predicate<'a>(&self, r: &Box<dyn Record + 'a>) -> bool;
+    fn evaluate_predicate(&self, r: &dyn Record) -> bool;
     fn filter<'a>(&self, values: &mut [Box<dyn Record + 'a>]) -> usize {
         let mut ins = None;
         for i in 0..values.len() {
-            if !self.evaluate_predicate(&values[i]) {
+            if !self.evaluate_predicate(&*values[i]) {
                 if ins.is_none() {
                     ins = Some(i);
                 }
@@ -31,20 +31,20 @@ pub struct RegexFilter {
 impl RegexFilter {
     pub fn new(field_type: Option<usize>, regex: &str) -> RegexFilter {
         RegexFilter {
-            field_type: field_type,
+            field_type,
             regex: Regex::new(regex).unwrap(),
         }
     }
 }
 
 impl Filter for RegexFilter {
-    fn evaluate_predicate<'a>(&self, r: &Box<dyn Record + 'a>) -> bool {
+    fn evaluate_predicate(&self, r: &dyn Record) -> bool {
         for field in r.field_iter(self.field_type) {
             if self.regex.is_match(field.data) {
                 return true;
             }
         }
-        return false;
+        false
     }
     fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
         None
@@ -57,12 +57,12 @@ pub struct AndFilter {
 
 impl AndFilter {
     pub fn new(children: Vec<Box<dyn Filter>>) -> AndFilter {
-        AndFilter { children: children }
+        AndFilter { children }
     }
 }
 
 impl Filter for AndFilter {
-    fn evaluate_predicate<'a>(&self, r: &Box<dyn Record + 'a>) -> bool {
+    fn evaluate_predicate(&self, r: &dyn Record) -> bool {
         for f in &self.children {
             if !f.evaluate_predicate(r) {
                 return false;
@@ -81,12 +81,12 @@ pub struct OrFilter {
 
 impl OrFilter {
     pub fn new(children: Vec<Box<dyn Filter>>) -> OrFilter {
-        OrFilter { children: children }
+        OrFilter { children }
     }
 }
 
 impl Filter for OrFilter {
-    fn evaluate_predicate<'a>(&self, r: &Box<dyn Record + 'a>) -> bool {
+    fn evaluate_predicate(&self, r: &dyn Record) -> bool {
         for f in &self.children {
             if f.evaluate_predicate(r) {
                 return true;
@@ -105,12 +105,12 @@ pub struct NotFilter {
 
 impl NotFilter {
     pub fn new(child: Box<dyn Filter>) -> NotFilter {
-        NotFilter { child: child }
+        NotFilter { child }
     }
 }
 
 impl Filter for NotFilter {
-    fn evaluate_predicate<'a>(&self, r: &Box<dyn Record + 'a>) -> bool {
+    fn evaluate_predicate(&self, r: &dyn Record) -> bool {
         !self.child.evaluate_predicate(r)
     }
 

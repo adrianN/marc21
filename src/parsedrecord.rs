@@ -71,9 +71,9 @@ impl AuthorityRecordMeta {
             record_type: t,
             status: s,
             character_coding_scheme: coding_scheme,
-            field_types: field_types,
-            field_offsets: field_offsets,
-            field_lengths: field_lengths,
+            field_types,
+            field_offsets,
+            field_lengths,
         }
     }
     pub fn num_fields(&self) -> usize {
@@ -115,7 +115,7 @@ impl RecordMeta {
         let field_offset = self.get_field_offset(idx);
         let field_length = self.get_field_length(idx);
         RecordField {
-            field_type: field_type,
+            field_type,
             data: &record_data[field_offset..field_offset + field_length],
         }
     }
@@ -175,7 +175,7 @@ impl<'s> ParsedRecordFieldIter<'s> {
         ParsedRecordFieldIter {
             record: r,
             idx: 0,
-            field_type: field_type,
+            field_type,
         }
     }
 }

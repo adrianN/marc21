@@ -40,14 +40,14 @@ impl<'a> ParseNode<'a> {
     pub fn new(entry: LexItem<'a>, ctx: ItemContext) -> ParseNode<'a> {
         ParseNode {
             children: Vec::new(),
-            entry: entry,
+            entry,
             context: ctx,
         }
     }
 
     pub fn visit_pre<F>(&self, visitor: &mut F)
     where
-        F: FnMut(&ParseNode<'a>) -> (),
+        F: FnMut(&ParseNode<'a>),
     {
         visitor(self);
         for c in &self.children {
@@ -57,7 +57,7 @@ impl<'a> ParseNode<'a> {
 
     pub fn visit_post<F>(&self, visitor: &mut F)
     where
-        F: FnMut(&ParseNode<'a>) -> (),
+        F: FnMut(&ParseNode<'a>),
     {
         for c in &self.children {
             c.visit_post(visitor);
@@ -79,7 +79,7 @@ impl<'a> ParseNode<'a> {
 }
 
 fn extract_regex_str(input: &str) -> Result<(usize, &str), ()> {
-    assert!(input.chars().nth(0) == Some('\''));
+    assert!(input.starts_with('\''));
     let mut escaped = false;
     for (i, c) in input[1..].chars().enumerate() {
         match c {
@@ -97,10 +97,10 @@ fn extract_regex_str(input: &str) -> Result<(usize, &str), ()> {
             }
         }
     }
-    return Err(());
+    Err(())
 }
 
-fn lex<'a>(input: &'a str) -> Result<Vec<(ItemContext, LexItem<'a>)>, String> {
+fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
     // matching a set of regexes is not the most efficient way to do this
     // but our users probably won't provide kilobytes of expr-code
     let token_regexes: Vec<regex::Regex> = [
@@ -183,7 +183,7 @@ fn lex<'a>(input: &'a str) -> Result<Vec<(ItemContext, LexItem<'a>)>, String> {
     Ok(result)
 }
 
-pub fn parse<'a>(input: &'a str) -> Result<ParseNode<'a>, String> {
+pub fn parse(input: &str) -> Result<ParseNode, String> {
     let tokens = lex(input)?;
     parse_inner(&tokens, 0).and_then(|(n, i)| {
         if i == tokens.len() {
@@ -220,7 +220,7 @@ fn parse_NOT<'a>(
             "Expected 'not' or '(' but found {:?} at {:?}",
             i, ctx
         )),
-        _ => Err(format!("Expected 'not' or '(' but reached end of input")),
+        _ => Err("Expected 'not' or '(' but reached end of input".to_string()),
     }
 }
 
