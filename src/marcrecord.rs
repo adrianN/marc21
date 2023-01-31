@@ -249,9 +249,7 @@ mod tests {
     use crate::MarcReader;
     use std::io::BufReader;
     use std::io::Cursor;
-    use std::io::Seek;
-    use std::io::SeekFrom;
-    static str : &[u8]= "00827nz  a2200241nc 4500\
+    static STR : &[u8]= "00827nz  a2200241nc 4500\
 001001000000\
 003000700010\
 005001700017\
@@ -274,9 +272,9 @@ mod tests {
 
     #[test]
     fn read_one() -> Result<(), String> {
-        dbg!(str.len());
-        let c = Cursor::new(str);
-        let mut breader = BufReader::new(c);
+        dbg!(STR.len());
+        let c = Cursor::new(STR);
+        let breader = BufReader::new(c);
         let mut mreader = MarcReader::new(breader);
         let mut v: Vec<u8> = Vec::new();
         v.resize(10000, 0);
@@ -287,7 +285,7 @@ mod tests {
                 let record = &batch.records[0];
                 assert_eq!(record.record_length(), 827);
                 let dir = record.directory();
-                dbg!(std::str::from_utf8(dir.directory));
+                dbg!(std::str::from_utf8(dir.directory).unwrap());
                 assert_eq!(dir.num_entries(), 18);
                 let entry_types = [
                     1, 3, 5, 8, 24, 35, 35, 35, 40, 42, 65, 75, 79, 83, 150, 550, 670, 913,
@@ -302,7 +300,7 @@ mod tests {
 
                 for i in 0..18 {
                     let entry = dir.get_entry(i);
-                    dbg!(std::str::from_utf8(entry.entry));
+                    dbg!(std::str::from_utf8(entry.entry).unwrap());
                     assert_eq!(entry.entry_type(), entry_types[i], "i {}", i);
                     assert_eq!(entry.len(), entry_lengths[i], "i {}", i);
                     assert_eq!(entry.start(), entry_starts[i], "i {}", i);
@@ -320,8 +318,8 @@ mod tests {
 
     #[test]
     fn conv_back() -> Result<(), String> {
-        let c = Cursor::new(str);
-        let mut breader = BufReader::new(c);
+        let c = Cursor::new(STR);
+        let breader = BufReader::new(c);
         let mut mreader = MarcReader::new(breader);
         let mut v: Vec<u8> = Vec::new();
         v.resize(10000, 0);
@@ -331,8 +329,8 @@ mod tests {
                 assert_eq!(batch.records.len(), 1);
                 let record = &batch.records[0];
                 let mut result: Vec<u8> = Vec::new();
-                record.to_marc21(&mut result);
-                assert_eq!(result, str);
+                record.to_marc21(&mut result).unwrap();
+                assert_eq!(result, STR);
                 Ok(())
             }
             _ => Err("something bad".to_string()),
