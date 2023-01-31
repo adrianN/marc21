@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::marcrecord::*;
 use crate::record::*;
 
@@ -38,7 +39,7 @@ impl AuthorityRecordMeta {
         let s = match r.header().header[5] {
             b'a' => AuthorityRecordStatus::IncreaseEncodingLevel,
             b'c' => AuthorityRecordStatus::Corrected,
-            b'c' => AuthorityRecordStatus::Deleted,
+            b'd' => AuthorityRecordStatus::Deleted,
             b'n' => AuthorityRecordStatus::New,
             b'o' => AuthorityRecordStatus::Obsolete,
             b's' => AuthorityRecordStatus::Split,
@@ -88,7 +89,6 @@ impl RecordMeta {
     pub fn new(r: &MarcRecord, d: &MarcDirectory) -> RecordMeta {
         match r.header().record_type() {
             RecordType::Authority => RecordMeta::AuthorityMeta(AuthorityRecordMeta::new(r, d)),
-            _ => todo!(),
         }
     }
 
@@ -159,7 +159,7 @@ impl Record for ParsedRecord {
         Box::new(ParsedRecordFieldIter::new(self, field_type))
     }
 
-    fn to_marc21(&self, writer: &mut dyn std::io::Write) -> std::io::Result<()> {
+    fn to_marc21(&self, _writer: &mut dyn std::io::Write) -> std::io::Result<()> {
         todo!()
     }
 }
@@ -200,9 +200,9 @@ impl<'s> Iterator for ParsedRecordFieldIter<'s> {
 #[cfg(test)]
 mod tests {
     use crate::record::*;
-    use crate::MarcHeader;
-    use crate::MarcRecord;
-    use crate::ParsedRecord;
+    use crate::marcrecord::MarcHeader;
+    use crate::marcrecord::MarcRecord;
+    use crate::parsedrecord::ParsedRecord;
     static str : &[u8]= "00827nz  a2200241nc 4500\
 001001000000\
 003000700010\

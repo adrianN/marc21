@@ -21,15 +21,15 @@ impl TranslationVisitor {
 }
 
 impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
-    fn pre(&mut self, node: &ParseNode) -> bool {
+    fn pre(&mut self, _node: &ParseNode) -> bool {
         true
     }
 
     fn post(&mut self, node: &ParseNode) -> bool {
         match node.entry {
             LexItem::Or => {
-                let mut second: Box<dyn Filter> = self.exprs.pop().unwrap();
-                let mut first: Box<dyn Filter> = self.exprs.pop().unwrap();
+                let second: Box<dyn Filter> = self.exprs.pop().unwrap();
+                let first: Box<dyn Filter> = self.exprs.pop().unwrap();
                 let mut arguments = Vec::new();
                 TranslationVisitor::flatten(first, &mut arguments);
                 TranslationVisitor::flatten(second, &mut arguments);
@@ -53,8 +53,8 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 true
             }
             LexItem::And => {
-                let mut second: Box<dyn Filter> = self.exprs.pop().unwrap();
-                let mut first: Box<dyn Filter> = self.exprs.pop().unwrap();
+                let second: Box<dyn Filter> = self.exprs.pop().unwrap();
+                let first: Box<dyn Filter> = self.exprs.pop().unwrap();
                 let mut arguments = Vec::new();
                 TranslationVisitor::flatten(first, &mut arguments);
                 TranslationVisitor::flatten(second, &mut arguments);

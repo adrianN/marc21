@@ -170,7 +170,7 @@ impl<'s> Record for MarcRecord<'s> {
 
     fn to_marc21(&self, writer: &mut dyn std::io::Write) -> std::io::Result<()> {
         writer.write(self.header().header)?;
-        writer.write(self.data);
+        writer.write(self.data)?;
         Ok(())
     }
 }
@@ -206,7 +206,6 @@ where
     ) -> Result<Option<MarcRecordBatch<'s>>, std::io::Error> {
         let mut records: Vec<MarcRecord> = Vec::new();
         let mut i = 0;
-        let capacity = mem.len();
         let start_pos = self.base_reader.stream_position().unwrap();
         let read = self.base_reader.read(mem)?;
         dbg!(read);
@@ -230,7 +229,8 @@ where
         // mem full, backpedal
         //self.base_reader.seek_relative(-24);
         // TODO seek_relative is unstable in my version of rust
-        self.base_reader.seek(SeekFrom::Start(start_pos + i as u64));
+        self.base_reader
+            .seek(SeekFrom::Start(start_pos + i as u64))?;
         //        let num_bytes = records
         //            .iter()
         //            .map(|r| r.header().record_length())

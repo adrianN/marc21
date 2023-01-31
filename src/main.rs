@@ -1,5 +1,5 @@
+#![allow(dead_code)]
 use std::env;
-use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 pub mod compiler;
@@ -10,11 +10,11 @@ pub mod parsedrecord;
 pub mod record;
 pub mod util;
 
-use filter::*;
+//use filter::*;
 use marcrecord::MarcHeader;
 use marcrecord::MarcReader;
-use marcrecord::MarcRecord;
-use parsedrecord::*;
+//use marcrecord::MarcRecord;
+//use parsedrecord::*;
 use record::*;
 
 fn get_header(data: &[u8]) -> MarcHeader {
@@ -33,14 +33,13 @@ fn main() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
     let filename = &args[1];
     let filter_str = &args[2];
-    let mut reader = BufReader::new(File::open(filename).unwrap());
+    let reader = BufReader::new(File::open(filename).unwrap());
     let mut marc_reader = MarcReader::new(reader);
     let cap = 64 * 1024 * 1024;
     let mut mem: Vec<u8> = Vec::with_capacity(cap);
     mem.resize(cap, 0);
-    let mut num_records: usize = 0;
     let filter = compiler::compile(filter_str)?;
-    while let Ok(Some(mut batch)) = marc_reader.read_batch(mem.as_mut_slice()) {
+    while let Ok(Some(batch)) = marc_reader.read_batch(mem.as_mut_slice()) {
         let mut boxs: Vec<Box<dyn Record>> = batch
             .records
             .into_iter()
@@ -117,7 +116,6 @@ fn main() -> Result<(), String> {
             //        }
             //      }
         }
-        dbg!(num_records);
         //    let contents = fs::read(filename).expect("can't read");
         //
         //    dbg!(contents.len());

@@ -7,7 +7,6 @@ NOT -> not expr | ( expr )
 x and y or z -> (x and y) or z
 */
 
-use crate::filter::*;
 use regex::Regex;
 use std::cmp::{max, min};
 
