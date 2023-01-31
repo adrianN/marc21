@@ -169,8 +169,8 @@ impl<'s> Record for MarcRecord<'s> {
     }
 
     fn to_marc21(&self, writer: &mut dyn std::io::Write) -> std::io::Result<()> {
-        writer.write(self.header().header)?;
-        writer.write(self.data)?;
+        writer.write_all(self.header().header)?;
+        writer.write_all(self.data)?;
         Ok(())
     }
 }

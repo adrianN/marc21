@@ -199,10 +199,10 @@ impl<'s> Iterator for ParsedRecordFieldIter<'s> {
 
 #[cfg(test)]
 mod tests {
-    use crate::record::*;
     use crate::marcrecord::MarcHeader;
     use crate::marcrecord::MarcRecord;
     use crate::parsedrecord::ParsedRecord;
+    use crate::record::*;
     static str : &[u8]= "00827nz  a2200241nc 4500\
 001001000000\
 003000700010\
