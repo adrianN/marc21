@@ -9,3 +9,4 @@ license = "AGPL-3.0-or-later"
 
 [dependencies]
 regex = "1.7.1"
+memchr = "2.5"

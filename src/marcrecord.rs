@@ -1,5 +1,5 @@
 use crate::util::parse_usize;
-use std::io::BufReader;
+use memchr::memchr;
 use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom;
@@ -81,7 +81,8 @@ impl<'s> MarcDirectory<'s> {
 }
 
 fn end_of_entry_position(data: &[u8]) -> Option<usize> {
-    data.iter().position(|&x| x == b'\x1e')
+    // data.iter().position(|&x| x == b'\x1e')
+    memchr(b'\x1e', data)
 }
 
 fn end_of_subfield_position(data: &[u8]) -> Option<usize> {
@@ -186,7 +187,7 @@ pub struct MarcReader<R>
 where
     R: Read + Seek,
 {
-    base_reader: BufReader<R>,
+    base_reader: R,
 }
 
 impl<R> MarcReader<R>
@@ -194,7 +195,7 @@ where
     R: Read + Seek,
 {
     // TODO maybe take R instead of BufReader
-    pub fn new(reader: BufReader<R>) -> MarcReader<R> {
+    pub fn new(reader: R) -> MarcReader<R> {
         MarcReader {
             base_reader: reader,
         }
@@ -205,10 +206,10 @@ where
         mem: &'s mut [u8],
     ) -> Result<Option<MarcRecordBatch<'s>>, std::io::Error> {
         let mut records: Vec<MarcRecord> = Vec::new();
+        records.reserve(mem.len() / 10000);
         let mut i = 0;
         let start_pos = self.base_reader.stream_position().unwrap();
         let read = self.base_reader.read(mem)?;
-        dbg!(read);
         if read == 0 {
             return Ok(None);
         }

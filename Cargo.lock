@@ -13,6 +13,7 @@ dependencies = [
 name = "marc21"
 version = "0.1.0"
 dependencies = [
+ "memchr",
  "regex",
 ]
 

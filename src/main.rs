@@ -33,12 +33,16 @@ fn main() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
     let filename = &args[1];
     let filter_str = &args[2];
-    let reader = BufReader::new(File::open(filename).unwrap());
+    //let reader = BufReader::new(File::open(filename).unwrap());
+    let reader = File::open(filename).unwrap();
     let mut marc_reader = MarcReader::new(reader);
-    let cap = 64 * 1024 * 1024;
+    let cap = 128 * 1024 * 1024;
     let mut mem: Vec<u8> = vec![0; cap];
     let filter = compiler::compile(filter_str)?;
+    let mut i = 0_usize;
     while let Ok(Some(batch)) = marc_reader.read_batch(mem.as_mut_slice()) {
+        i += batch.records.len();
+
         let mut boxs: Vec<Box<dyn Record>> = batch
             .records
             .into_iter()
@@ -53,6 +57,7 @@ fn main() -> Result<(), String> {
             //stdout.write(b"\n");
         }
     }
+    println!("{}", i);
     Ok(())
     /*
         let args: Vec<String> = env::args().collect();
