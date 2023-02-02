@@ -1,4 +1,4 @@
-use crate::util::parse_usize;
+use crate::util::*;
 use memchr::memchr;
 use std::io::Read;
 use std::io::Seek;
@@ -34,7 +34,7 @@ impl<'s> MarcHeader<'s> {
     }
 
     pub fn record_length(&self) -> usize {
-        parse_usize(&self.header[0..5])
+        parse_usize5(&self.header[0..5])
     }
     pub fn record_type(&self) -> RecordType {
         match self.header[6] {
@@ -56,13 +56,13 @@ pub struct MarcDirectoryEntryRef<'s> {
 
 impl<'s> MarcDirectoryEntryRef<'s> {
     pub fn entry_type(&self) -> usize {
-        parse_usize(&self.entry[0..3])
+        parse_usize3(&self.entry[0..3])
     }
     pub fn len(&self) -> usize {
-        parse_usize(&self.entry[3..7])
+        parse_usize4(&self.entry[3..7])
     }
     pub fn start(&self) -> usize {
-        parse_usize(&self.entry[7..12])
+        parse_usize5(&self.entry[7..12])
     }
 }
 
@@ -144,14 +144,12 @@ impl<'s> MarcRecordFieldIter<'s> {
 impl<'s> Iterator for MarcRecordFieldIter<'s> {
     type Item = RecordField<'s>;
     fn next(&mut self) -> Option<Self::Item> {
-        while self.idx < self.entries.directory.num_entries() {
+        let num_entries = self.entries.directory.num_entries();
+        while self.idx < num_entries {
             let entry_ref = self.entries.directory.get_entry(self.idx);
             self.idx += 1;
             let entry_type = entry_ref.entry_type();
-            if self
-                .field_type
-                .map_or(true, |t| t == entry_ref.entry_type())
-            {
+            if self.field_type.map_or(true, |t| t == entry_type) {
                 // +1 because we want to skip the field separator
                 let start = entry_ref.start() + 1;
                 return Some(RecordField {
@@ -205,8 +203,7 @@ where
         &mut self,
         mem: &'s mut [u8],
     ) -> Result<Option<MarcRecordBatch<'s>>, std::io::Error> {
-        let mut records: Vec<MarcRecord> = Vec::new();
-        records.reserve(mem.len() / 10000);
+        let mut records: Vec<MarcRecord> = Vec::with_capacity(mem.len() / 10000);
         let mut i = 0;
         let start_pos = self.base_reader.stream_position().unwrap();
         let read = self.base_reader.read(mem)?;
@@ -218,7 +215,7 @@ where
                 header: &mem[i..i + 24],
             };
             let record_length = header.record_length();
-            assert!(record_length < mem.len());
+            //assert!(record_length < mem.len());
             if record_length + i <= read {
                 // still fits in mem
                 records.push(MarcRecord::new(header, &mem[i + 24..i + record_length]));

@@ -42,6 +42,15 @@ fn main() -> Result<(), String> {
     let mut i = 0_usize;
     while let Ok(Some(batch)) = marc_reader.read_batch(mem.as_mut_slice()) {
         i += batch.records.len();
+        //				for record in batch.records {
+        //					for field in record.field_iter(Some(1)) {
+        //						if field.data == "1264401221".as_bytes() {
+        //							print_record(&record);
+        //							println!();
+        //							break;
+        //						}
+        //					}
+        //				}
 
         let mut boxs: Vec<Box<dyn Record>> = batch
             .records
