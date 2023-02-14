@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 use crate::marcrecord::*;
+use crate::ownedrecord::OwnedRecord;
 use crate::record::*;
 
 pub enum AuthorityRecordStatus {
@@ -30,6 +31,17 @@ pub struct AuthorityRecordMeta {
 // TODO we could implement a builder pattern to reuse things we already
 // parsed during pre-filtering
 impl AuthorityRecordMeta {
+    pub fn empty_new() -> AuthorityRecordMeta {
+        AuthorityRecordMeta {
+            record_type: RecordType::Authority,
+            status: AuthorityRecordStatus::New,
+            character_coding_scheme: AuthorityRecordCharacterCodingScheme::Unicode,
+            field_types: Vec::new(),
+            field_offsets: Vec::new(),
+            field_lengths: Vec::new(),
+        }
+    }
+
     pub fn new(r: &MarcRecord, dir: &MarcDirectory) -> AuthorityRecordMeta {
         let t = r.header().record_type();
         assert!(t == RecordType::Authority);
@@ -79,6 +91,16 @@ impl AuthorityRecordMeta {
     pub fn num_fields(&self) -> usize {
         self.field_types.len()
     }
+
+    pub fn add_field(&mut self, field_type: usize, field_start: usize, field_len: usize) {
+        self.field_types.push(field_type);
+        assert!(self.field_lengths.iter().sum::<usize>() == field_start);
+        self.field_offsets.push(field_start);
+        self.field_lengths.push(field_len);
+    }
+    pub fn record_type(&self) -> RecordType {
+        self.record_type.clone()
+    }
 }
 
 pub enum RecordMeta {
@@ -86,9 +108,20 @@ pub enum RecordMeta {
 }
 
 impl RecordMeta {
+    pub fn empty_new(_t: RecordType) -> RecordMeta {
+        //todo other types
+        assert!(_t == RecordType::Authority);
+        RecordMeta::AuthorityMeta(AuthorityRecordMeta::empty_new())
+    }
     pub fn new(r: &MarcRecord, d: &MarcDirectory) -> RecordMeta {
         match r.header().record_type() {
             RecordType::Authority => RecordMeta::AuthorityMeta(AuthorityRecordMeta::new(r, d)),
+        }
+    }
+
+    pub fn record_type(&self) -> RecordType {
+        match self {
+            Self::AuthorityMeta(record_meta) => record_meta.record_type(),
         }
     }
 
@@ -125,6 +158,14 @@ impl RecordMeta {
             Self::AuthorityMeta(record_meta) => record_meta.num_fields(),
         }
     }
+
+    pub fn add_field(&mut self, field_type: usize, field_start: usize, field_len: usize) {
+        match self {
+            Self::AuthorityMeta(record_meta) => {
+                record_meta.add_field(field_type, field_start, field_len)
+            }
+        }
+    }
 }
 
 pub struct ParsedRecord {
@@ -142,6 +183,19 @@ impl ParsedRecord {
         }
     }
 
+    pub fn empty_new(t: RecordType) -> ParsedRecord {
+        ParsedRecord {
+            meta: RecordMeta::empty_new(t),
+            field_data: Vec::new(),
+        }
+    }
+
+    pub fn add_field(&mut self, field_type: usize, field_data: &[u8]) {
+        self.meta
+            .add_field(field_type, self.field_data.len(), field_data.len());
+        self.field_data.extend_from_slice(field_data);
+    }
+
     fn field_data(&self) -> &[u8] {
         &self.field_data
     }
@@ -155,8 +209,22 @@ impl ParsedRecord {
 }
 
 impl Record for ParsedRecord {
+    fn record_type(&self) -> RecordType {
+        self.meta.record_type()
+    }
     fn field_iter(&self, field_type: Option<usize>) -> Box<dyn Iterator<Item = RecordField> + '_> {
         Box::new(ParsedRecordFieldIter::new(self, field_type))
+    }
+
+    fn field_iter_vec(
+        &self,
+        field_type: &Vec<usize>,
+    ) -> Box<dyn Iterator<Item = RecordField> + '_> {
+        todo!()
+    }
+
+    fn to_owned(self) -> OwnedRecord {
+        todo!()
     }
 
     fn to_marc21(&self, _writer: &mut dyn std::io::Write) -> std::io::Result<()> {

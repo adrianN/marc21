@@ -3,10 +3,13 @@ use std::env;
 use std::fs::File;
 use std::io::BufReader;
 pub mod compiler;
+pub mod expression;
 pub mod exprparse;
 pub mod filter;
 pub mod marcrecord;
+pub mod ownedrecord;
 pub mod parsedrecord;
+pub mod projection;
 pub mod record;
 pub mod util;
 
@@ -15,6 +18,8 @@ use marcrecord::MarcHeader;
 use marcrecord::MarcReader;
 //use marcrecord::MarcRecord;
 //use parsedrecord::*;
+use expression::*;
+use projection::*;
 use record::*;
 
 fn get_header(data: &[u8]) -> MarcHeader {
@@ -40,6 +45,9 @@ fn main() -> Result<(), String> {
     let mut mem: Vec<u8> = vec![0; cap];
     let filter = compiler::compile(filter_str)?;
     let mut i = 0_usize;
+
+    let select_expr: Box<dyn Expression> = Box::new(FieldTypeSelect::new(vec![1, 150, 400]));
+    let proj = Projection::new(vec![select_expr]);
     while let Ok(Some(batch)) = marc_reader.read_batch(mem.as_mut_slice()) {
         i += batch.records.len();
         //				for record in batch.records {
@@ -57,11 +65,12 @@ fn main() -> Result<(), String> {
             .into_iter()
             .map(|x| -> Box<dyn Record> { Box::new(x) })
             .collect();
-        let i = filter.filter(&mut boxs);
-        for r in boxs.into_iter().take(i) {
+        let remaining = filter.filter(&mut boxs);
+        proj.project(&mut boxs[..remaining]);
+        for r in boxs.into_iter().take(remaining) {
             //for r in batch.records {
             print_record(&*r);
-            println!();
+            println!("{}", i);
             //r.to_marc21(&mut stdout);
             //stdout.write(b"\n");
         }

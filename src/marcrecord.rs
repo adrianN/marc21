@@ -4,6 +4,7 @@ use std::io::Read;
 use std::io::Seek;
 use std::io::SeekFrom;
 
+use crate::ownedrecord::OwnedRecord;
 use crate::record::*;
 
 #[derive(Debug)]
@@ -20,11 +21,6 @@ pub struct MarcRecord<'s> {
 pub struct MarcRecordEntries<'s> {
     directory: MarcDirectory<'s>,
     record_payload: &'s [u8],
-}
-
-#[derive(std::cmp::PartialEq)]
-pub enum RecordType {
-    Authority = b'z' as isize,
 }
 
 impl<'s> MarcHeader<'s> {
@@ -162,9 +158,65 @@ impl<'s> Iterator for MarcRecordFieldIter<'s> {
     }
 }
 
+// TODO express non-vec version using this?
+pub struct MarcRecordFieldIterVec<'s> {
+    entries: MarcRecordEntries<'s>,
+    idx: usize,
+    field_types: Vec<usize>,
+}
+
+impl<'s> MarcRecordFieldIterVec<'s> {
+    pub fn new(r: &'s MarcRecord, field_types: &Vec<usize>) -> MarcRecordFieldIterVec<'s> {
+        MarcRecordFieldIterVec {
+            entries: r.entries(),
+            idx: 0,
+            field_types: field_types.clone(), // todo avoid this copy, field_types should outlive the iterator
+        }
+    }
+}
+
+impl<'s> Iterator for MarcRecordFieldIterVec<'s> {
+    type Item = RecordField<'s>;
+    fn next(&mut self) -> Option<Self::Item> {
+        let num_entries = self.entries.directory.num_entries();
+        while self.idx < num_entries {
+            let entry_ref = self.entries.directory.get_entry(self.idx);
+            self.idx += 1;
+            let entry_type = entry_ref.entry_type();
+            if let Ok(_) = self.field_types.binary_search(&entry_type) {
+                // +1 because we want to skip the field separator
+                let start = entry_ref.start() + 1;
+                return Some(RecordField {
+                    field_type: entry_type,
+                    data: &self.entries.record_payload[start..start + entry_ref.len() - 1], // -1 because we skipped the field separator
+                });
+            }
+        }
+        None
+    }
+}
+
 impl<'s> Record for MarcRecord<'s> {
+    fn record_type(&self) -> RecordType {
+        self.header().record_type()
+    }
     fn field_iter(&self, field_type: Option<usize>) -> Box<dyn Iterator<Item = RecordField> + '_> {
         Box::new(MarcRecordFieldIter::new(&self, field_type))
+    }
+
+    fn field_iter_vec(
+        &self,
+        field_types: &Vec<usize>,
+    ) -> Box<dyn Iterator<Item = RecordField> + '_> {
+        Box::new(MarcRecordFieldIterVec::new(&self, field_types))
+    }
+
+    fn to_owned(self) -> OwnedRecord {
+        let mut record = OwnedRecord::new();
+        for i in 0..record.header.len() {
+            record.header[i] = self.header.header[i];
+        }
+        record
     }
 
     fn to_marc21(&self, writer: &mut dyn std::io::Write) -> std::io::Result<()> {

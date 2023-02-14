@@ -7,6 +7,7 @@ pub trait Filter: Any {
     //fn filter(values : &mut Vec<Record>);
     fn evaluate_predicate(&self, r: &dyn Record) -> bool;
     fn filter<'a>(&self, values: &mut [Box<dyn Record + 'a>]) -> usize {
+        // todo Vec::retain?
         let mut ins = None;
         for i in 0..values.len() {
             if !self.evaluate_predicate(&*values[i]) {
