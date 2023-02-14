@@ -21,6 +21,14 @@ impl OwnedRecord {
         self.field_data.push(field.data);
     }
 
+    pub fn add_field_from_iter(&mut self, field_iter: &mut dyn Iterator<Item = RecordField>) {
+        for field in field_iter {
+            dbg!("add_field_from_iter");
+            self.add_field(field.to_owned());
+        }
+        self.update_len();
+    }
+
     fn update_len(&mut self) {
         let data_len: usize = self.field_data.iter().map(|x| x.len()).sum();
         let dict_len: usize = 12 * self.field_data.len();
@@ -42,15 +50,16 @@ impl<'s> Iterator for OwnedRecordFieldIter<'s> {
     type Item = RecordField<'s>;
     fn next(&mut self) -> Option<Self::Item> {
         while self.i < self.record.field_types.len() {
-            let field_type = self.record.field_types[self.i];
-            if let Ok(_) = self.field_types.binary_search(&field_type) {
-                let field_data = &self.record.field_data[self.i];
+            let idx = self.i;
+            self.i += 1;
+            let field_type = self.record.field_types[idx];
+            if self.field_types.binary_search(&field_type).is_ok() || self.field_types.len() == 0 {
+                let field_data = &self.record.field_data[idx];
                 return Some(RecordField {
                     field_type,
                     data: field_data,
                 });
             }
-            self.i += 1;
         }
         None
     }

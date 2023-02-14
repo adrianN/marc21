@@ -29,6 +29,7 @@ fn get_header(data: &[u8]) -> MarcHeader {
 }
 
 fn print_record(r: &dyn Record) {
+    print!("Record: ");
     for field in r.field_iter(None) {
         println!("{}\t{}", field.field_type, field.utf8_data());
     }
