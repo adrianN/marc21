@@ -3,8 +3,8 @@ use std::env;
 use std::fs::File;
 use std::io::BufReader;
 pub mod compiler;
-pub mod expression;
 pub mod exprparse;
+pub mod field_expression;
 pub mod filter;
 pub mod marcrecord;
 pub mod ownedrecord;
@@ -18,7 +18,7 @@ use marcrecord::MarcHeader;
 use marcrecord::MarcReader;
 //use marcrecord::MarcRecord;
 //use parsedrecord::*;
-use expression::*;
+use field_expression::*;
 use projection::*;
 use record::*;
 
@@ -47,7 +47,7 @@ fn main() -> Result<(), String> {
     let filter = compiler::compile(filter_str)?;
     let mut i = 0_usize;
 
-    let select_expr: Box<dyn Expression> = Box::new(FieldTypeSelect::new(vec![1, 150, 400]));
+    let select_expr: Box<dyn FieldExpression> = Box::new(FieldTypeSelect::new(vec![1, 150, 400]));
     let proj = Projection::new(vec![select_expr]);
     while let Ok(Some(batch)) = marc_reader.read_batch(mem.as_mut_slice()) {
         i += batch.records.len();

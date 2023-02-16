@@ -1,14 +1,14 @@
-use crate::expression::Expression;
+use crate::field_expression::FieldExpression;
 use crate::ownedrecord::OwnedRecord;
 use crate::parsedrecord::ParsedRecord;
 use crate::Record;
 
 pub struct Projection {
-    exprs: Vec<Box<dyn Expression>>,
+    exprs: Vec<Box<dyn FieldExpression>>,
 }
 
 impl Projection {
-    pub fn new(exprs: Vec<Box<dyn Expression>>) -> Projection {
+    pub fn new(exprs: Vec<Box<dyn FieldExpression>>) -> Projection {
         Projection { exprs }
     }
     pub fn project<'a>(&self, values: &mut [Box<dyn Record + 'a>]) -> usize {

@@ -1,4 +1,5 @@
 use crate::exprparse::*;
+use crate::field_expression::*;
 use crate::filter::*;
 use std::any::TypeId;
 
@@ -65,12 +66,13 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 let children: Vec<LexItem> =
                     node.children.iter().map(|x| x.entry.clone()).collect();
                 assert!(children.len() == 2);
-                if let LexItem::FieldRef(_, field_type, _) = children[0] {
+                if let LexItem::FieldRef(record_type, field_type, subfield_type) = children[0] {
                     if let LexItem::RegexStr(regexstr) = children[1] {
-                        self.exprs.push(Box::new(RegexFilter::new(
-                            field_type.map(|x| x.parse::<usize>().unwrap()),
-                            regexstr,
-                        )));
+                        // todo with the FieldExpr stuff this deserves its own parsing function
+                        let field_expr =
+                            Box::new(FieldRefExpr::new(record_type, field_type, subfield_type));
+                        self.exprs
+                            .push(Box::new(RegexFilter::new(field_expr, regexstr)));
                     } else {
                         unreachable!();
                     }

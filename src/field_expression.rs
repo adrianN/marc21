@@ -1,7 +1,7 @@
 use crate::ownedrecord::OwnedRecord;
 use crate::record::{OwnedRecordField, Record, RecordField, RecordType};
 
-pub trait Expression {
+pub trait FieldExpression {
     fn compute<'a>(&self, record: &'a dyn Record)
         -> Box<dyn Iterator<Item = RecordField<'a>> + 'a>;
 }
@@ -17,7 +17,7 @@ impl FieldTypeSelect {
     }
 }
 
-impl Expression for FieldTypeSelect {
+impl FieldExpression for FieldTypeSelect {
     fn compute<'a>(
         &self,
         record: &'a dyn Record,
@@ -48,13 +48,28 @@ where
     }
 }
 
-impl Expression for FieldRefExpr {
+impl FieldRefExpr {
+    pub fn new(
+        record_type: Option<&str>,
+        field_type: Option<&str>,
+        subfield_type: Option<&str>,
+    ) -> FieldRefExpr {
+        FieldRefExpr {
+            record_type: record_type.and_then(RecordType::from_str),
+            field_type: field_type.map(|x| x.parse::<usize>().expect("not a number")),
+            subfield_type: subfield_type.map(|x| x.bytes().next().unwrap()),
+        }
+    }
+}
+
+impl FieldExpression for FieldRefExpr {
     fn compute<'a>(
         &self,
         record: &'a dyn Record,
     ) -> Box<dyn Iterator<Item = RecordField<'a>> + 'a> {
         if self
-            .record_type.as_ref()
+            .record_type
+            .as_ref()
             .map(|x| *x == record.record_type())
             .unwrap_or(false)
         {

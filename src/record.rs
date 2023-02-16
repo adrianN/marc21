@@ -26,6 +26,16 @@ pub enum RecordType {
     Authority = b'z' as isize,
 }
 
+impl RecordType {
+    pub fn from_str(s: &str) -> Option<RecordType> {
+        match s {
+            "a" => Some(RecordType::Authority),
+            "*" => None,
+            _ => todo!(),
+        }
+    }
+}
+
 pub trait Record {
     fn record_type(&self) -> RecordType;
     // todo nightly features might avoid the box

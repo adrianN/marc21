@@ -1,7 +1,7 @@
+use crate::field_expression::FieldExpression;
+use crate::Record;
 use regex::bytes::Regex;
 use std::any::Any;
-
-use crate::Record;
 
 pub trait Filter: Any {
     //fn filter(values : &mut Vec<Record>);
@@ -25,14 +25,14 @@ pub trait Filter: Any {
 }
 
 pub struct RegexFilter {
-    field_type: Option<usize>,
+    field_expr: Box<dyn FieldExpression>,
     regex: Regex,
 }
 
 impl RegexFilter {
-    pub fn new(field_type: Option<usize>, regex: &str) -> RegexFilter {
+    pub fn new(field_expr: Box<dyn FieldExpression>, regex: &str) -> RegexFilter {
         RegexFilter {
-            field_type,
+            field_expr,
             regex: Regex::new(regex).unwrap(),
         }
     }
@@ -40,7 +40,7 @@ impl RegexFilter {
 
 impl Filter for RegexFilter {
     fn evaluate_predicate(&self, r: &dyn Record) -> bool {
-        for field in r.field_iter(self.field_type) {
+        for field in self.field_expr.compute(r) {
             if self.regex.is_match(field.data) {
                 return true;
             }
