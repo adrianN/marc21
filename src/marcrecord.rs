@@ -183,7 +183,7 @@ impl<'s> Iterator for MarcRecordFieldIterVec<'s> {
             let entry_ref = self.entries.directory.get_entry(self.idx);
             self.idx += 1;
             let entry_type = entry_ref.entry_type();
-            if let Ok(_) = self.field_types.binary_search(&entry_type) {
+            if self.field_types.binary_search(&entry_type).is_ok() {
                 // +1 because we want to skip the field separator
                 let start = entry_ref.start() + 1;
                 return Some(RecordField {

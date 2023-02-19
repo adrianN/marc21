@@ -34,8 +34,8 @@ impl OwnedRecord {
         let dict_len: usize = 12 * self.field_data.len();
         let mut l: usize = data_len + dict_len + self.header.len();
         for i in 0..5 {
-            self.header[4 - i] = '0' as u8 + (l % 10) as u8;
-            l = l / 10;
+            self.header[4 - i] = b'0' + (l % 10) as u8;
+            l /= 10;
         }
     }
 }
@@ -83,7 +83,7 @@ impl Record for OwnedRecord {
     fn field_iter(&self, field_types: Option<usize>) -> Box<dyn Iterator<Item = RecordField> + '_> {
         // todo we probably don't want to alloc a vec here
         if let Some(x) = field_types {
-            self.field_iter_vec(&vec![x])
+            self.field_iter_vec(&[x])
         } else {
             self.field_iter_vec(&Vec::new())
         }
