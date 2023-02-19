@@ -216,10 +216,7 @@ impl Record for ParsedRecord {
         Box::new(ParsedRecordFieldIter::new(self, field_type))
     }
 
-    fn field_iter_vec(
-        &self,
-        field_type: &Vec<usize>,
-    ) -> Box<dyn Iterator<Item = RecordField> + '_> {
+    fn field_iter_vec(&self, field_type: &[usize]) -> Box<dyn Iterator<Item = RecordField> + '_> {
         todo!()
     }
 

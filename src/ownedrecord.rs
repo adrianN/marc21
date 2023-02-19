@@ -69,13 +69,10 @@ impl Record for OwnedRecord {
     fn record_type(&self) -> RecordType {
         todo!();
     }
-    fn field_iter_vec(
-        &self,
-        field_types: &Vec<usize>,
-    ) -> Box<dyn Iterator<Item = RecordField> + '_> {
+    fn field_iter_vec(&self, field_types: &[usize]) -> Box<dyn Iterator<Item = RecordField> + '_> {
         Box::new(OwnedRecordFieldIter {
             i: 0,
-            field_types: field_types.clone(),
+            field_types: field_types.to_vec(),
             record: &self,
         })
     }

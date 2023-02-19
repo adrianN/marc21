@@ -166,11 +166,11 @@ pub struct MarcRecordFieldIterVec<'s> {
 }
 
 impl<'s> MarcRecordFieldIterVec<'s> {
-    pub fn new(r: &'s MarcRecord, field_types: &Vec<usize>) -> MarcRecordFieldIterVec<'s> {
+    pub fn new(r: &'s MarcRecord, field_types: &[usize]) -> MarcRecordFieldIterVec<'s> {
         MarcRecordFieldIterVec {
             entries: r.entries(),
             idx: 0,
-            field_types: field_types.clone(), // todo avoid this copy, field_types should outlive the iterator
+            field_types: field_types.to_vec(), // todo avoid this copy, field_types should outlive the iterator
         }
     }
 }
@@ -204,10 +204,7 @@ impl<'s> Record for MarcRecord<'s> {
         Box::new(MarcRecordFieldIter::new(&self, field_type))
     }
 
-    fn field_iter_vec(
-        &self,
-        field_types: &Vec<usize>,
-    ) -> Box<dyn Iterator<Item = RecordField> + '_> {
+    fn field_iter_vec(&self, field_types: &[usize]) -> Box<dyn Iterator<Item = RecordField> + '_> {
         Box::new(MarcRecordFieldIterVec::new(&self, field_types))
     }
 
