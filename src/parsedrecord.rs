@@ -220,10 +220,6 @@ impl Record for ParsedRecord {
         todo!()
     }
 
-    fn to_owned(self) -> OwnedRecord {
-        todo!()
-    }
-
     fn to_marc21(&self, _writer: &mut dyn std::io::Write) -> std::io::Result<()> {
         todo!()
     }

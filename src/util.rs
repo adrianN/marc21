@@ -41,3 +41,16 @@ pub fn parse_usize(slice: &[u8]) -> usize {
     }
     n
 }
+
+pub fn write_usize(n: usize, len: usize, writer: &mut dyn std::io::Write) -> std::io::Result<()> {
+    assert!(n < 100000);
+    let mut n_len: usize = 0;
+    let mut m = n;
+    let mut buf: [u8; 5] = [b'0', b'0', b'0', b'0', b'0'];
+    while m > 0 {
+        buf[buf.len() - n_len - 1] = b'0' + (m % 10) as u8;
+        m /= 10;
+        n_len += 1;
+    }
+    writer.write_all(&buf[5 - len..])
+}

@@ -43,7 +43,5 @@ pub trait Record {
     fn field_iter(&self, field_type: Option<usize>) -> Box<dyn Iterator<Item = RecordField> + '_>;
     fn field_iter_vec(&self, field_types: &[usize]) -> Box<dyn Iterator<Item = RecordField> + '_>;
 
-    fn to_owned(self) -> OwnedRecord;
-
     fn to_marc21(&self, writer: &mut dyn std::io::Write) -> std::io::Result<()>;
 }

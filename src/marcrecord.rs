@@ -119,6 +119,18 @@ impl<'s> MarcRecord<'s> {
             record_payload: &self.data[d_len..],
         }
     }
+
+    pub fn to_owned(&self) -> OwnedRecord {
+        let mut record = OwnedRecord::new();
+        for i in 0..record.header.len() {
+            record.header[i] = self.header.header[i];
+        }
+        for entry in self.field_iter(None) {
+            record.add_field(entry.to_owned());
+        }
+
+        record
+    }
 }
 
 pub struct MarcRecordFieldIter<'s> {
@@ -206,14 +218,6 @@ impl<'s> Record for MarcRecord<'s> {
 
     fn field_iter_vec(&self, field_types: &[usize]) -> Box<dyn Iterator<Item = RecordField> + '_> {
         Box::new(MarcRecordFieldIterVec::new(&self, field_types))
-    }
-
-    fn to_owned(self) -> OwnedRecord {
-        let mut record = OwnedRecord::new();
-        for i in 0..record.header.len() {
-            record.header[i] = self.header.header[i];
-        }
-        record
     }
 
     fn to_marc21(&self, writer: &mut dyn std::io::Write) -> std::io::Result<()> {
