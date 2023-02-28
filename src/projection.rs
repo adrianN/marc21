@@ -16,7 +16,6 @@ impl Projection {
             // todo this loses header information
             let mut result = OwnedRecord::new();
             for expr in &self.exprs {
-                // todo why doesn't for record in values { compute(&*record) } work?
                 result.add_field_from_iter(&mut expr.compute(&*values[i]));
             }
             values[i] = Box::new(result);
