@@ -9,18 +9,26 @@ x and y or z -> (x and y) or z
 */
 use crate::parser::*;
 
-pub fn parse(input: &str) -> Result<ParseNode, String> {
-    let tokens = lex(input)?;
-    parse_inner(&tokens, 0).and_then(|(n, i)| {
-        if i == tokens.len() {
-            Ok(n)
-        } else {
-            Err(format!(
-                "Expected end of input, found {:?} at {}",
-                tokens[i], i
-            ))
+fn parse_expr_inner<'a>(
+    input: &[(ItemContext, LexItem<'a>)],
+    offset: usize,
+) -> Result<(ParseNode<'a>, usize), String> {
+    let (lhs, next_offset) = parse_OR(input, offset)?;
+    let c = input.get(next_offset);
+    match c {
+        Some((context, LexItem::Or)) => {
+            // recurse
+            let mut or_expr = ParseNode::new(LexItem::Or, context.clone());
+            or_expr.children.push(lhs);
+            let (rhs, rhs_offset) = parse_expr_inner(input, next_offset + 1)?;
+            or_expr.children.push(rhs);
+            Ok((or_expr, rhs_offset))
         }
-    })
+        _ => {
+            // just the OR production
+            Ok((lhs, next_offset))
+        }
+    }
 }
 
 fn parse_NOT<'a>(
@@ -30,12 +38,12 @@ fn parse_NOT<'a>(
     match input.get(offset) {
         Some((ctx, LexItem::Not)) => {
             let mut not_expr = ParseNode::new(LexItem::Not, ctx.clone());
-            let (rhs, rhs_offset) = parse_inner(input, offset + 1)?;
+            let (rhs, rhs_offset) = parse_expr_inner(input, offset + 1)?;
             not_expr.children.push(rhs);
             Ok((not_expr, rhs_offset))
         }
         Some((ctx, LexItem::Paren)) => {
-            let (expr, next_offset) = parse_inner(input, offset + 1)?;
+            let (expr, next_offset) = parse_expr_inner(input, offset + 1)?;
             if let Some((_, LexItem::Paren)) = input.get(next_offset) {
                 Ok((expr, next_offset + 1))
             } else {
@@ -57,21 +65,11 @@ fn parse_REGEX<'a>(
     if let Ok((not_expr, next_offset)) = parse_NOT(input, offset) {
         Ok((not_expr, next_offset))
     } else {
-        match (
-            input.get(offset),
-            input.get(offset + 1),
-            input.get(offset + 2),
-        ) {
-            (
-                Some((ctx, LexItem::FieldRef(record_type, field_type, subfield_type))),
-                Some((ctx1, LexItem::MatchOp)),
-                Some((ctx2, LexItem::RegexStr(regex))),
-            ) => {
+        let (field_ref_node, next_offset) = parse_COLUMN_EXPR(input, offset)?;
+        match (input.get(next_offset), input.get(next_offset + 1)) {
+            (Some((ctx1, LexItem::MatchOp)), Some((ctx2, LexItem::RegexStr(regex)))) => {
                 let mut matchnode = ParseNode::new(LexItem::MatchOp, ctx1.clone());
-                matchnode.children.push(ParseNode::new(
-                    LexItem::FieldRef(*record_type, *field_type, *subfield_type),
-                    ctx.clone(),
-                ));
+                matchnode.children.push(field_ref_node);
                 matchnode
                     .children
                     .push(ParseNode::new(LexItem::RegexStr(*regex), ctx2.clone()));
@@ -82,7 +80,26 @@ fn parse_REGEX<'a>(
     }
 }
 
-fn parse_OR<'a>(
+fn parse_COLUMN_EXPR<'a>(
+    input: &[(ItemContext, LexItem<'a>)],
+    offset: usize,
+) -> Result<(ParseNode<'a>, usize), String> {
+    if let Some((ctx, LexItem::FieldRef(record_type, field_type, subfield_type))) =
+        input.get(offset)
+    {
+        Ok((
+            ParseNode::new(
+                LexItem::FieldRef(*record_type, *field_type, *subfield_type),
+                ctx.clone(),
+            ),
+            offset + 1,
+        ))
+    } else {
+        Err("expected a field ref expression".to_string())
+    }
+}
+
+pub fn parse_OR<'a>(
     input: &[(ItemContext, LexItem<'a>)],
     offset: usize,
 ) -> Result<(ParseNode<'a>, usize), String> {
@@ -97,28 +114,6 @@ fn parse_OR<'a>(
             Ok((and_expr, rhs_offset))
         }
         _ => Ok((lhs, next_offset)),
-    }
-}
-
-fn parse_inner<'a>(
-    input: &[(ItemContext, LexItem<'a>)],
-    offset: usize,
-) -> Result<(ParseNode<'a>, usize), String> {
-    let (lhs, next_offset) = parse_OR(input, offset)?;
-    let c = input.get(next_offset);
-    match c {
-        Some((context, LexItem::Or)) => {
-            // recurse
-            let mut or_expr = ParseNode::new(LexItem::Or, context.clone());
-            or_expr.children.push(lhs);
-            let (rhs, rhs_offset) = parse_inner(input, next_offset + 1)?;
-            or_expr.children.push(rhs);
-            Ok((or_expr, rhs_offset))
-        }
-        _ => {
-            // just the OR production
-            Ok((lhs, next_offset))
-        }
     }
 }
 

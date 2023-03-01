@@ -2,6 +2,7 @@ use crate::exprparse::*;
 use crate::field_expression::*;
 use crate::filter::*;
 use crate::parser::*;
+use crate::projection::*;
 use std::any::TypeId;
 
 struct TranslationVisitor {
@@ -96,11 +97,19 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
     }
 }
 
-pub fn compile(input: &str) -> Result<Box<dyn Filter>, String> {
+pub struct CompilationResult {
+    pub projection: Option<Projection>,
+    pub filter_expr: Option<Box<dyn Filter>>,
+}
+
+pub fn compile(input: &str) -> Result<CompilationResult, String> {
     let parsetree = parse(input)?;
     let mut visitor = TranslationVisitor::new();
     parsetree.visit(&mut visitor);
     dbg!(visitor.exprs.len());
     assert!(visitor.exprs.len() == 1);
-    Ok(visitor.exprs.pop().unwrap())
+    Ok(CompilationResult {
+        projection: None,
+        filter_expr: Some(visitor.exprs.pop().unwrap()),
+    })
 }

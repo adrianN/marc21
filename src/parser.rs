@@ -4,6 +4,7 @@ COLUMN_EXPR_LIST -> COLUMN_EXPR | COLUMN_EXPR, COLUMN_EXPR_LIST
 WHERE_CLAUSE -> | where EXPR
 */
 
+use crate::exprparse::*;
 pub use crate::lexer::*;
 
 pub trait ParseTreeVisitor<'a> {
@@ -57,5 +58,41 @@ impl<'a> ParseNode<'a> {
             }
         }
         visitor.post(self)
+    }
+}
+
+pub fn parse(input: &str) -> Result<ParseNode, String> {
+    let tokens = lex(input)?;
+    parse_inner(&tokens, 0).and_then(|(n, i)| {
+        if i == tokens.len() {
+            Ok(n)
+        } else {
+            Err(format!(
+                "Expected end of input, found {:?} at {}",
+                tokens[i], i
+            ))
+        }
+    })
+}
+
+fn parse_inner<'a>(
+    input: &[(ItemContext, LexItem<'a>)],
+    offset: usize,
+) -> Result<(ParseNode<'a>, usize), String> {
+    let (lhs, next_offset) = parse_OR(input, offset)?;
+    let c = input.get(next_offset);
+    match c {
+        Some((context, LexItem::Or)) => {
+            // recurse
+            let mut or_expr = ParseNode::new(LexItem::Or, context.clone());
+            or_expr.children.push(lhs);
+            let (rhs, rhs_offset) = parse_inner(input, next_offset + 1)?;
+            or_expr.children.push(rhs);
+            Ok((or_expr, rhs_offset))
+        }
+        _ => {
+            // just the OR production
+            Ok((lhs, next_offset))
+        }
     }
 }

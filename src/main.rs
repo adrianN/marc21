@@ -46,7 +46,7 @@ fn main() -> Result<(), String> {
     let mut marc_reader = MarcReader::new(reader);
     let cap = 128 * 1024 * 1024;
     let mut mem: Vec<u8> = vec![0; cap];
-    let filter = compiler::compile(filter_str)?;
+    let filter = compiler::compile(filter_str)?.filter_expr.unwrap();
     let mut i = 0_usize;
 
     let select_expr: Box<dyn FieldExpression> = Box::new(FieldTypeSelect::new(vec![1, 150, 400]));
