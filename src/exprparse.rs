@@ -9,6 +9,28 @@ x and y or z -> (x and y) or z
 */
 use crate::parser::*;
 
+pub fn parse_expr<'a>(
+    input: &[(ItemContext, LexItem<'a>)],
+    offset: usize,
+) -> Result<(ParseNode<'a>, usize), String> {
+    let (lhs, next_offset) = parse_OR(input, offset)?;
+    let c = input.get(next_offset);
+    match c {
+        Some((context, LexItem::Or)) => {
+            // recurse
+            let mut or_expr = ParseNode::new(LexItem::Or, context.clone());
+            or_expr.children.push(lhs);
+            let (rhs, rhs_offset) = parse_expr(input, next_offset + 1)?;
+            or_expr.children.push(rhs);
+            Ok((or_expr, rhs_offset))
+        }
+        _ => {
+            // just the OR production
+            Ok((lhs, next_offset))
+        }
+    }
+}
+
 fn parse_expr_inner<'a>(
     input: &[(ItemContext, LexItem<'a>)],
     offset: usize,
@@ -124,7 +146,7 @@ mod test {
     #[test]
     fn test_parse1() -> Result<(), String> {
         let str1 = "150 ~ 'aoeu'";
-        let p = parse(str1)?;
+        let (p, _) = parse_expr(&lex(str1)?, 0)?;
         assert_eq!(p.entry, LexItem::MatchOp);
         assert_eq!(p.children.len(), 2);
         assert_eq!(
@@ -138,12 +160,12 @@ mod test {
     #[test]
     fn test_parse2() -> Result<(), String> {
         let str1 = "not  150 ~ 'aoeu'";
-        let p = parse(str1)?;
+        let (p, _) = parse_expr(&lex(str1)?, 0)?;
         assert_eq!(p.entry, LexItem::Not);
         assert_eq!(p.children.len(), 1);
 
         let str1 = "not (150 ~ 'aoeu')";
-        let p2 = parse(str1)?;
+        let (p2, _) = parse_expr(&lex(str1)?, 0)?;
         assert_eq!(p2.entry, LexItem::Not);
         assert_eq!(p2.children.len(), 1);
 
@@ -154,9 +176,7 @@ mod test {
     #[test]
     fn test_parse3() -> Result<(), String> {
         let str1 = "150 ~ 'aoeu' and 151 ~ 'bcd'";
-        let p = parse(str1);
-        assert!(p.is_ok());
-        let p = p.unwrap();
+        let (p, _) = parse_expr(&lex(str1)?, 0)?;
         {
             let mut v: Vec<LexItem<'static>> = Vec::new();
             let mut visitor = |n: &ParseNode<'static>| {
@@ -203,9 +223,7 @@ mod test {
     #[test]
     fn test_parse4() -> Result<(), String> {
         let str1 = "150 ~ 'aoeu' and 151 ~ 'bcd' and 152 ~ 'efg'";
-        let p = parse(str1);
-        assert!(p.is_ok());
-        let p = p.unwrap();
+        let (p, _) = parse_expr(&lex(str1)?, 0)?;
         {
             let mut v: Vec<LexItem<'static>> = Vec::new();
             let mut visitor = |n: &ParseNode<'static>| {
