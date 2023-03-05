@@ -30,6 +30,21 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
 
     fn post(&mut self, node: &ParseNode) -> bool {
         match node.entry {
+            LexItem::Select => {
+                todo!()
+            }
+            LexItem::Comma => {
+                todo!()
+            }
+            LexItem::FromKW => {
+                todo!()
+            }
+            LexItem::TableRef(_) => {
+                todo!()
+            }
+            LexItem::Where => {
+                todo!()
+            }
             LexItem::Or => {
                 let second: Box<dyn Filter> = self.exprs.pop().unwrap();
                 let first: Box<dyn Filter> = self.exprs.pop().unwrap();
