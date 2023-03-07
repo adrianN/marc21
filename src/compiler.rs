@@ -6,12 +6,18 @@ use crate::projection::*;
 use std::any::TypeId;
 
 struct TranslationVisitor {
-    exprs: Vec<Box<dyn Filter>>,
+    filter_exprs: Vec<Box<dyn Filter>>,
+    projection_exprs: Vec<Box<dyn FieldExpression>>,
+    table_name: String,
 }
 
 impl TranslationVisitor {
     pub fn new() -> TranslationVisitor {
-        TranslationVisitor { exprs: Vec::new() }
+        TranslationVisitor {
+            filter_exprs: Vec::new(),
+            projection_exprs: Vec::new(),
+            table_name: "".to_string(),
+        }
     }
 
     fn flatten(mut x: Box<dyn Filter>, arguments: &mut Vec<Box<dyn Filter>>) {
@@ -31,30 +37,38 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
     fn post(&mut self, node: &ParseNode) -> bool {
         match node.entry {
             LexItem::Select => {
-                todo!()
+                // FieldRef children of select are projections
+                for c in &node.children {
+                    if let LexItem::FieldRef(r, f, s) = c.entry {
+                        self.projection_exprs
+                            .push(Box::new(FieldRefExpr::new(r, f, s)));
+                    }
+                }
+                true
             }
             LexItem::Comma => {
-                todo!()
+                unreachable!()
             }
             LexItem::FromKW => {
-                todo!()
+                unreachable!()
             }
-            LexItem::TableRef(_) => {
-                todo!()
+            LexItem::TableRef(table_name) => {
+                self.table_name = table_name.to_string();
+                true
             }
             LexItem::Where => {
-                todo!()
+                unreachable!()
             }
             LexItem::Or => {
-                let second: Box<dyn Filter> = self.exprs.pop().unwrap();
-                let first: Box<dyn Filter> = self.exprs.pop().unwrap();
+                let second: Box<dyn Filter> = self.filter_exprs.pop().unwrap();
+                let first: Box<dyn Filter> = self.filter_exprs.pop().unwrap();
                 let mut arguments = Vec::new();
                 TranslationVisitor::flatten(first, &mut arguments);
                 TranslationVisitor::flatten(second, &mut arguments);
-                self.exprs.push(Box::new(OrFilter::new(arguments)));
+                self.filter_exprs.push(Box::new(OrFilter::new(arguments)));
                 /*
                 todo it would be nice if code like this compiled
-                                                self.exprs.push(Box::new(OrFilter::new(
+                                                self.filter_exprs.push(Box::new(OrFilter::new(
                                                     [first, second]
                                                         .iter_mut()
                                                         .flat_map(|x: Box<dyn Filter>| {
@@ -71,12 +85,12 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 true
             }
             LexItem::And => {
-                let second: Box<dyn Filter> = self.exprs.pop().unwrap();
-                let first: Box<dyn Filter> = self.exprs.pop().unwrap();
+                let second: Box<dyn Filter> = self.filter_exprs.pop().unwrap();
+                let first: Box<dyn Filter> = self.filter_exprs.pop().unwrap();
                 let mut arguments = Vec::new();
                 TranslationVisitor::flatten(first, &mut arguments);
                 TranslationVisitor::flatten(second, &mut arguments);
-                self.exprs.push(Box::new(AndFilter::new(arguments)));
+                self.filter_exprs.push(Box::new(AndFilter::new(arguments)));
                 true
             }
             LexItem::MatchOp => {
@@ -88,7 +102,7 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                         // todo with the FieldExpr stuff this deserves its own parsing function
                         let field_expr =
                             Box::new(FieldRefExpr::new(record_type, field_type, subfield_type));
-                        self.exprs
+                        self.filter_exprs
                             .push(Box::new(RegexFilter::new(field_expr, regexstr)));
                     } else {
                         unreachable!();
@@ -99,8 +113,8 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 true
             }
             LexItem::Not => {
-                let argument = self.exprs.pop().unwrap();
-                self.exprs.push(Box::new(NotFilter::new(argument)));
+                let argument = self.filter_exprs.pop().unwrap();
+                self.filter_exprs.push(Box::new(NotFilter::new(argument)));
                 true
             }
             LexItem::Paren => {
@@ -113,18 +127,20 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
 }
 
 pub struct CompilationResult {
-    pub projection: Option<Projection>,
+    pub projection: Projection,
     pub filter_expr: Option<Box<dyn Filter>>,
+    pub table_name: String,
 }
 
 pub fn compile(input: &str) -> Result<CompilationResult, String> {
     let parsetree = parse(input)?;
     let mut visitor = TranslationVisitor::new();
     parsetree.visit(&mut visitor);
-    dbg!(visitor.exprs.len());
-    assert!(visitor.exprs.len() == 1);
+    dbg!(visitor.filter_exprs.len());
+    assert!(visitor.filter_exprs.len() <= 1);
     Ok(CompilationResult {
-        projection: None,
-        filter_expr: Some(visitor.exprs.pop().unwrap()),
+        projection: Projection::new(visitor.projection_exprs),
+        filter_expr: visitor.filter_exprs.pop(),
+        table_name: visitor.table_name,
     })
 }

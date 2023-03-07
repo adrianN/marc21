@@ -64,7 +64,7 @@ pub fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
         // followed by a field type
         // followed by a subfield type (opt.)
         r"^(([a\*])\.)?([0-9]+|\*)\.?([a-z\*])?",
-        r"^[a-zA-Z0-9_]+",
+        r"^[a-zA-Z0-9_-]+",
     ]
     .iter()
     .map(|x| Regex::new(x).unwrap())

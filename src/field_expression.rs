@@ -56,7 +56,7 @@ impl FieldRefExpr {
     ) -> FieldRefExpr {
         FieldRefExpr {
             record_type: record_type.and_then(RecordType::from_str),
-            field_type: field_type.map(|x| x.parse::<usize>().expect("not a number")),
+            field_type: field_type.and_then(|x| x.parse::<usize>().ok()),
             subfield_type: subfield_type.map(|x| x.bytes().next().unwrap()),
         }
     }
