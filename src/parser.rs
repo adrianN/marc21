@@ -132,14 +132,34 @@ fn parse_SELECT<'a>(
     }
 }
 
-
 #[cfg(test)]
 mod test {
-use crate::parser::*;
+    use crate::parser::*;
 
-#[test]
-fn parse_select() -> Result<(), String> {
-    let x = parse("select * from some_table where 150 ~ 'aueo'")?;
-    Ok(())
-}
+    #[test]
+    fn parse_select() -> Result<(), String> {
+        let x = parse("select * from some_table where 150 ~ 'aueo'")?;
+        assert_eq!(x.entry, LexItem::Select);
+        assert_eq!(x.children.len(), 3);
+        assert_eq!(
+            x.children[0].entry,
+            LexItem::FieldRef(None, Some("*"), None)
+        );
+        assert_eq!(x.children[1].entry, LexItem::TableRef("some_table"));
+        assert_eq!(x.children[2].entry, LexItem::MatchOp);
+        let x = parse("select *, a.150.b from some_table where 150 ~ 'aueo'")?;
+        assert_eq!(x.entry, LexItem::Select);
+        assert_eq!(x.children.len(), 4);
+        assert_eq!(
+            x.children[0].entry,
+            LexItem::FieldRef(None, Some("*"), None)
+        );
+        assert_eq!(
+            x.children[1].entry,
+            LexItem::FieldRef(Some("a"), Some("150"), Some("b"))
+        );
+        assert_eq!(x.children[2].entry, LexItem::TableRef("some_table"));
+        assert_eq!(x.children[3].entry, LexItem::MatchOp);
+        Ok(())
+    }
 }
