@@ -1,16 +1,17 @@
 use crate::field_expression::FieldExpression;
+use crate::util::TriStateBool;
 use crate::Record;
 use regex::bytes::Regex;
 use std::any::Any;
 
 pub trait Filter: Any {
     //fn filter(values : &mut Vec<Record>);
-    fn evaluate_predicate(&self, r: &dyn Record) -> bool;
+    fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool;
     fn filter<'a>(&self, values: &mut [Box<dyn Record + 'a>]) -> usize {
         // todo Vec::retain?
         let mut ins = None;
         for i in 0..values.len() {
-            if !self.evaluate_predicate(&*values[i]) {
+            if self.evaluate_predicate(&*values[i]) != TriStateBool::True {
                 if ins.is_none() {
                     ins = Some(i);
                 }
@@ -39,13 +40,13 @@ impl RegexFilter {
 }
 
 impl Filter for RegexFilter {
-    fn evaluate_predicate(&self, r: &dyn Record) -> bool {
+    fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
         for field in self.field_expr.compute(r) {
             if self.regex.is_match(field.data) {
-                return true;
+                return TriStateBool::True;
             }
         }
-        false
+        TriStateBool::False
     }
     fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
         None
@@ -63,13 +64,13 @@ impl AndFilter {
 }
 
 impl Filter for AndFilter {
-    fn evaluate_predicate(&self, r: &dyn Record) -> bool {
+    fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
         for f in &self.children {
-            if !f.evaluate_predicate(r) {
-                return false;
+            if !f.evaluate_predicate(r) == TriStateBool::True {
+                return TriStateBool::False;
             }
         }
-        true
+        TriStateBool::True
     }
     fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
         Some(&mut self.children)
@@ -87,13 +88,13 @@ impl OrFilter {
 }
 
 impl Filter for OrFilter {
-    fn evaluate_predicate(&self, r: &dyn Record) -> bool {
+    fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
         for f in &self.children {
-            if f.evaluate_predicate(r) {
-                return true;
+            if f.evaluate_predicate(r) == TriStateBool::True {
+                return TriStateBool::True;
             }
         }
-        false
+        TriStateBool::False
     }
     fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
         Some(&mut self.children)
@@ -111,7 +112,7 @@ impl NotFilter {
 }
 
 impl Filter for NotFilter {
-    fn evaluate_predicate(&self, r: &dyn Record) -> bool {
+    fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
         !self.child.evaluate_predicate(r)
     }
 
