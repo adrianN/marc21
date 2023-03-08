@@ -41,12 +41,18 @@ impl RegexFilter {
 
 impl Filter for RegexFilter {
     fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
+        let mut has_field = false;
         for field in self.field_expr.compute(r) {
+            has_field = true;
             if self.regex.is_match(field.data) {
                 return TriStateBool::True;
             }
         }
-        TriStateBool::False
+        if has_field {
+            TriStateBool::False
+        } else {
+            TriStateBool::Null
+        }
     }
     fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
         None
@@ -65,12 +71,23 @@ impl AndFilter {
 
 impl Filter for AndFilter {
     fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
+        let mut just_nulls = true;
         for f in &self.children {
-            if !f.evaluate_predicate(r) == TriStateBool::True {
-                return TriStateBool::False;
+            match f.evaluate_predicate(r) {
+                TriStateBool::False => {
+                    return TriStateBool::False;
+                }
+                TriStateBool::True => {
+                    just_nulls = false;
+                }
+                TriStateBool::Null => {}
             }
         }
-        TriStateBool::True
+        if just_nulls {
+            TriStateBool::Null
+        } else {
+            TriStateBool::True
+        }
     }
     fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
         Some(&mut self.children)
@@ -89,12 +106,23 @@ impl OrFilter {
 
 impl Filter for OrFilter {
     fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
+        let mut has_null = false;
         for f in &self.children {
-            if f.evaluate_predicate(r) == TriStateBool::True {
-                return TriStateBool::True;
+            match f.evaluate_predicate(r) {
+                TriStateBool::True => {
+                    return TriStateBool::True;
+                }
+                TriStateBool::Null => {
+                    has_null = true;
+                }
+                TriStateBool::False => {}
             }
         }
-        TriStateBool::False
+        if has_null {
+            TriStateBool::Null
+        } else {
+            TriStateBool::False
+        }
     }
     fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
         Some(&mut self.children)
