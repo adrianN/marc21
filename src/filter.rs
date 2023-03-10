@@ -7,20 +7,25 @@ use std::any::Any;
 pub trait Filter: Any {
     //fn filter(values : &mut Vec<Record>);
     fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool;
-    fn filter<'a>(&self, values: &mut [Box<dyn Record + 'a>]) -> usize {
-        // todo Vec::retain?
-        let mut ins = None;
-        for i in 0..values.len() {
-            if self.evaluate_predicate(&*values[i]) != TriStateBool::True {
-                if ins.is_none() {
-                    ins = Some(i);
+    fn filter<'a>(&self, values: &mut [Box<dyn Record + 'a>]) -> (usize, usize) {
+        let mut true_pos = 0;
+        let mut null_pos = 0;
+        let mut false_pos = values.len() - 1;
+        while null_pos <= false_pos {
+            match self.evaluate_predicate(&*values[null_pos]) {
+                TriStateBool::True => {
+                    values.swap(true_pos, null_pos);
+                    true_pos += 1;
+                    null_pos += 1;
                 }
-            } else if let Some(j) = ins {
-                ins = Some(j + 1);
-                values.swap(i, j);
+                TriStateBool::False => {
+                    values.swap(null_pos, false_pos);
+                    false_pos -= 1;
+                }
+                TriStateBool::Null => null_pos += 1,
             }
         }
-        ins.unwrap_or(values.len())
+        (true_pos, null_pos)
     }
     fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>>;
 }
@@ -146,5 +151,129 @@ impl Filter for NotFilter {
 
     fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
         None
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::field_expression::*;
+    use crate::filter::*;
+    use crate::ownedrecord::*;
+    use crate::record::*;
+    fn test_data() -> Vec<Box<dyn Record>> {
+        let mut result: Vec<Box<dyn Record>> = Vec::new();
+        for i in 0..2 {
+            let mut r = Box::new(OwnedRecord::new());
+            r.add_field(OwnedRecordField {
+                field_type: 23,
+                data: "foo".as_bytes().to_vec(),
+            });
+            r.add_field(OwnedRecordField {
+                field_type: 0,
+                data: format!("{}", i).as_bytes().to_vec(),
+            });
+            result.push(r);
+        }
+        for i in 2..4 {
+            let mut r = Box::new(OwnedRecord::new());
+            r.add_field(OwnedRecordField {
+                field_type: 23,
+                data: "bar".as_bytes().to_vec(),
+            });
+            r.add_field(OwnedRecordField {
+                field_type: 0,
+                data: format!("{}", i).as_bytes().to_vec(),
+            });
+            result.push(r);
+        }
+        for i in 4..6 {
+            let mut r = Box::new(OwnedRecord::new());
+            r.add_field(OwnedRecordField {
+                field_type: 42,
+                data: "baz".as_bytes().to_vec(),
+            });
+            r.add_field(OwnedRecordField {
+                field_type: 0,
+                data: format!("{}", i).as_bytes().to_vec(),
+            });
+            result.push(r);
+        }
+        result
+    }
+
+    struct TestFilter {
+        results: Vec<TriStateBool>,
+    }
+
+    impl Filter for TestFilter {
+        fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
+            None
+        }
+        fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
+            let i = r
+                .field_iter(Some(0))
+                .next()
+                .map(|x| {
+                    std::str::from_utf8(x.data)
+                        .unwrap()
+                        .parse::<usize>()
+                        .unwrap()
+                })
+                .unwrap();
+            self.results[i]
+        }
+    }
+
+    #[test]
+    fn test_filter() {
+        let mut data = test_data();
+        let mut filter = TestFilter {
+            results: vec![
+                TriStateBool::False,
+                TriStateBool::Null,
+                TriStateBool::True,
+                TriStateBool::True,
+                TriStateBool::False,
+                TriStateBool::False,
+            ],
+        };
+
+        let (a, b) = filter.filter(&mut data);
+        assert_eq!(a, 2);
+        assert_eq!(b, 3);
+    }
+
+    #[test]
+    fn test_regex() {
+        let field_expr = FieldRefExpr::new(None, Some("23"), None);
+        let regex = RegexFilter::new(Box::new(field_expr), "foo");
+        let mut data = test_data();
+        let (t, n) = regex.filter(&mut data);
+        assert_eq!(t, 2);
+        for i in 0..t {
+            assert_eq!(regex.evaluate_predicate(&*data[i]), TriStateBool::True);
+        }
+        assert_eq!(n, 4);
+        for i in t..n {
+            assert_eq!(regex.evaluate_predicate(&*data[i]), TriStateBool::Null);
+        }
+        for i in n..data.len() {
+            assert_eq!(regex.evaluate_predicate(&*data[i]), TriStateBool::False);
+        }
+        let order: Vec<usize> = data
+            .iter()
+            .map(|x| {
+                x.field_iter(Some(0))
+                    .map(|x| {
+                        std::str::from_utf8(x.data)
+                            .unwrap()
+                            .parse::<usize>()
+                            .unwrap()
+                    })
+                    .next()
+                    .unwrap()
+            })
+            .collect();
+        assert_eq!(order, vec![0, 1, 5, 4, 3, 2]);
     }
 }

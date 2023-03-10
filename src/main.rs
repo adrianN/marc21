@@ -59,7 +59,7 @@ fn run_sql(sql_text: &str) -> Result<(), String> {
             .collect();
         let remaining = filter
             .as_ref()
-            .map(|x| x.filter(&mut boxs))
+            .map(|x| x.filter(&mut boxs).0)
             .unwrap_or(boxs.len());
         projection.project(&mut boxs[..remaining]);
         for r in boxs.into_iter().take(remaining) {
