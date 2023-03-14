@@ -112,6 +112,9 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 }
                 true
             }
+            LexItem::EqOp => {
+                todo!()
+            }
             LexItem::Not => {
                 let argument = self.filter_exprs.pop().unwrap();
                 self.filter_exprs.push(Box::new(NotFilter::new(argument)));

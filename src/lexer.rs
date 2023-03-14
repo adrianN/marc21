@@ -13,6 +13,7 @@ pub enum LexItem<'a> {
     Or,
     And,
     MatchOp,
+    EqOp,
     Not,
     Paren,
     RegexStr(&'a str),
@@ -53,6 +54,7 @@ pub fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
         r"^or",
         r"^and",
         r"^~",
+        r"^=",
         r"^not",
         r"^[)(]",
         // we only use a regex to find the start of a regex
@@ -69,7 +71,7 @@ pub fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
     .iter()
     .map(|x| Regex::new(x).unwrap())
     .collect();
-    assert!(token_regexes.len() == 13);
+    assert!(token_regexes.len() == 14);
     let mut i = 0;
     let mut result = Vec::new();
     'outer: while i < input.len() {
@@ -80,7 +82,7 @@ pub fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
                 let cur_i = i;
                 match j {
                     0 => {} // skip whitespace
-                    1..=9 => {
+                    1..=10 => {
                         result.push((
                             ItemContext(i),
                             [
@@ -91,13 +93,14 @@ pub fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
                                 LexItem::Or,
                                 LexItem::And,
                                 LexItem::MatchOp,
+                                LexItem::EqOp,
                                 LexItem::Not,
                                 LexItem::Paren,
                             ][j - 1]
                                 .clone(),
                         ));
                     }
-                    10 => {
+                    11 => {
                         if let Ok((end, slice)) = extract_regex_str(&input[i..]) {
                             result.push((ItemContext(i), LexItem::RegexStr(slice)));
                             i += end - 1;
@@ -106,7 +109,7 @@ pub fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
                 &input[max(0, i - 5)..min(i + 5, input.len())]));
                         }
                     }
-                    11 => {
+                    12 => {
                         let record_type = cap.get(2).map(|x| x.as_str());
                         let field_type = cap.get(3).map(|x| x.as_str());
                         let subfield_type = cap.get(4).map(|x| x.as_str());
@@ -115,7 +118,7 @@ pub fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
                             LexItem::FieldRef(record_type, field_type, subfield_type),
                         ));
                     }
-                    12 => {
+                    13 => {
                         result.push((
                             ItemContext(i),
                             LexItem::TableRef(cap.get(0).map(|x| x.as_str()).unwrap()),
@@ -163,11 +166,11 @@ mod tests {
 
     #[test]
     fn test_tokenize() -> Result<(), ()> {
-        let input1 = "  or  and  ~  'aoeu'a.123.b)()123.b123  select , from some_table where  ";
+        let input1 = "  or  and  ~  'aoeu'a.123.b)()123.b123  select , from some_table where  =";
         let r1 = lex(input1);
         dbg!(&r1);
         if let Ok(tokens) = r1 {
-            assert_eq!(tokens.len(), 15);
+            assert_eq!(tokens.len(), 16);
             assert_eq!(
                 tokens,
                 vec![
@@ -191,7 +194,8 @@ mod tests {
                     (ItemContext(47), LexItem::Comma),
                     (ItemContext(49), LexItem::FromKW),
                     (ItemContext(54), LexItem::TableRef("some_table")),
-                    (ItemContext(65), LexItem::Where)
+                    (ItemContext(65), LexItem::Where),
+                    (ItemContext(72), LexItem::EqOp),
                 ]
             );
             Ok(())

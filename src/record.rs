@@ -4,6 +4,7 @@ pub struct OwnedRecordField {
     pub field_type: usize,
     pub data: Vec<u8>,
 }
+
 pub struct RecordField<'s> {
     pub field_type: usize,
     pub data: &'s [u8],

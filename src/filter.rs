@@ -154,6 +154,52 @@ impl Filter for NotFilter {
     }
 }
 
+pub enum FilterInput {
+    filter(Box<dyn Filter>),
+    field_ref(Box<dyn FieldExpression>),
+}
+pub struct EqFilter {
+    left_child: FilterInput,
+    right_child: FilterInput,
+}
+
+impl Filter for EqFilter {
+    fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
+        match (&self.left_child, &self.right_child) {
+            (FilterInput::filter(f1), FilterInput::filter(f2)) => {
+                if f1.evaluate_predicate(r) == f2.evaluate_predicate(r) {
+                    TriStateBool::True
+                } else {
+                    TriStateBool::False
+                }
+            }
+            (FilterInput::field_ref(f1), FilterInput::field_ref(f2)) => {
+                let mut has_f1 = false;
+                let mut has_f2 = false;
+                // TODO hash instead of nested-loop?
+                for field in f1.compute(r) {
+                    has_f1 = true;
+                    for field2 in f2.compute(r) {
+                        has_f2 = true;
+                        if field.data == field2.data {
+                            return TriStateBool::True;
+                        }
+                    }
+                }
+                if has_f1 && has_f2 {
+                    TriStateBool::False
+                } else {
+                    TriStateBool::True
+                }
+            }
+            _ => unreachable!(),
+        }
+    }
+    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
+        None
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::field_expression::*;
