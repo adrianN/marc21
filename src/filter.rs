@@ -163,6 +163,15 @@ pub struct EqFilter {
     right_child: FilterInput,
 }
 
+impl EqFilter {
+    pub fn new(left_child: FilterInput, right_child: FilterInput) -> EqFilter {
+        EqFilter {
+            left_child,
+            right_child,
+        }
+    }
+}
+
 impl Filter for EqFilter {
     fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
         match (&self.left_child, &self.right_child) {

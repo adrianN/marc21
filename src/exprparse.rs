@@ -1,9 +1,8 @@
 /*
 EXPR -> OR or EXPR | OR
-OR -> REGEX and OR  | REGEX
-REGEX -> COLUMN_EXPR ~ 'regexstr' | NOT
-COLUMN_EXPR -> field_ref
-NOT -> not expr | ( expr )
+OR -> TERM and OR  | TERM
+TERM -> NOT ~ 'regexstr' | NOT = TERM | NOT
+NOT -> not expr | field_ref | ( expr )
 
 x and y or z -> (x and y) or z
 */
@@ -72,6 +71,13 @@ fn parse_NOT<'a>(
                 Err(format!("Mismatched parenthesis. {:?}", ctx))
             }
         }
+        Some((ctx, LexItem::FieldRef(record_type, field_type, subfield_type))) => Ok((
+            ParseNode::new(
+                LexItem::FieldRef(*record_type, *field_type, *subfield_type),
+                ctx.clone(),
+            ),
+            offset + 1,
+        )),
         Some((ctx, i)) => Err(format!(
             "Expected 'not' or '(' but found {:?} at {:?}",
             i, ctx
@@ -80,25 +86,39 @@ fn parse_NOT<'a>(
     }
 }
 
-fn parse_REGEX<'a>(
+fn parse_TERM<'a>(
     input: &[(ItemContext, LexItem<'a>)],
     offset: usize,
 ) -> Result<(ParseNode<'a>, usize), String> {
-    if let Ok((not_expr, next_offset)) = parse_NOT(input, offset) {
-        Ok((not_expr, next_offset))
-    } else {
-        let (field_ref_node, next_offset) = parse_COLUMN_EXPR(input, offset)?;
-        match (input.get(next_offset), input.get(next_offset + 1)) {
-            (Some((ctx1, LexItem::MatchOp)), Some((ctx2, LexItem::RegexStr(regex)))) => {
-                let mut matchnode = ParseNode::new(LexItem::MatchOp, ctx1.clone());
+    let (lhs, next_offset) = parse_NOT(input, offset)?;
+    match input.get(next_offset) {
+        Some((ctx, LexItem::EqOp)) => {
+            let (rhs, next_offset) = parse_NOT(input, next_offset + 1)?;
+            let mut eqnode = ParseNode::new(LexItem::EqOp, ctx.clone());
+            eqnode.children.push(lhs);
+            eqnode.children.push(rhs);
+            Ok((eqnode, next_offset))
+        }
+        Some((ctx, LexItem::MatchOp)) => match (lhs.entry, input.get(next_offset + 1)) {
+            (
+                LexItem::FieldRef(record_type, field_type, subfield_type),
+                Some((ctx2, LexItem::RegexStr(regex))),
+            ) => {
+                let field_ref_node = ParseNode::new(
+                    LexItem::FieldRef(record_type, field_type, subfield_type),
+                    ctx.clone(),
+                );
+                let mut matchnode = ParseNode::new(LexItem::MatchOp, ctx.clone());
                 matchnode.children.push(field_ref_node);
                 matchnode
                     .children
                     .push(ParseNode::new(LexItem::RegexStr(*regex), ctx2.clone()));
-                Ok((matchnode, offset + 3))
+                Ok((matchnode, next_offset + 2))
             }
             _ => Err("todo nice message".to_string()),
-        }
+        },
+        None => Ok((lhs, next_offset)),
+        _ => Err("expected = or ~".to_string()),
     }
 }
 
@@ -125,7 +145,7 @@ pub fn parse_OR<'a>(
     input: &[(ItemContext, LexItem<'a>)],
     offset: usize,
 ) -> Result<(ParseNode<'a>, usize), String> {
-    let (lhs, next_offset) = parse_REGEX(input, offset)?;
+    let (lhs, next_offset) = parse_TERM(input, offset)?;
     let c = input.get(next_offset);
     match c {
         Some((context, LexItem::And)) => {

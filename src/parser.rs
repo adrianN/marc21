@@ -138,30 +138,6 @@ mod test {
 
     #[test]
     fn parse_select() -> Result<(), String> {
-        let x = parse("select * from some_table where 150 ~ 'aueo'")?;
-        assert_eq!(x.entry, LexItem::Select);
-        assert_eq!(x.children.len(), 3);
-        assert_eq!(
-            x.children[0].entry,
-            LexItem::FieldRef(None, Some("*"), None)
-        );
-        assert_eq!(x.children[1].entry, LexItem::TableRef("some_table"));
-        assert_eq!(x.children[2].entry, LexItem::MatchOp);
-
-        let x = parse("select *, a.150.b from some_table where 150 ~ 'aueo'")?;
-        assert_eq!(x.entry, LexItem::Select);
-        assert_eq!(x.children.len(), 4);
-        assert_eq!(
-            x.children[0].entry,
-            LexItem::FieldRef(None, Some("*"), None)
-        );
-        assert_eq!(
-            x.children[1].entry,
-            LexItem::FieldRef(Some("a"), Some("150"), Some("b"))
-        );
-        assert_eq!(x.children[2].entry, LexItem::TableRef("some_table"));
-        assert_eq!(x.children[3].entry, LexItem::MatchOp);
-
         let x = parse("select *, a.150.b from some_table ")?;
         assert_eq!(x.entry, LexItem::Select);
         assert_eq!(x.children.len(), 3);
@@ -174,6 +150,51 @@ mod test {
             LexItem::FieldRef(Some("a"), Some("150"), Some("b"))
         );
         assert_eq!(x.children[2].entry, LexItem::TableRef("some_table"));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_where1() -> Result<(), String> {
+        let x = parse("select * from some_table where 150 ~ 'aueo'")?;
+        assert_eq!(x.entry, LexItem::Select);
+        assert_eq!(x.children.len(), 3);
+        assert_eq!(
+            x.children[0].entry,
+            LexItem::FieldRef(None, Some("*"), None)
+        );
+        assert_eq!(x.children[1].entry, LexItem::TableRef("some_table"));
+        assert_eq!(x.children[2].entry, LexItem::MatchOp);
+        let matchop = &x.children[2];
+        assert_eq!(matchop.children.len(), 2);
+        assert_eq!(
+            matchop.children[0].entry,
+            LexItem::FieldRef(None, Some("150"), None)
+        );
+        assert_eq!(matchop.children[1].entry, LexItem::RegexStr("aueo"));
+        Ok(())
+    }
+
+    #[test]
+    fn parse_where2() -> Result<(), String> {
+        let x = parse("select * from some_table where 150 = 142")?;
+        assert_eq!(x.entry, LexItem::Select);
+        assert_eq!(x.children.len(), 3);
+        assert_eq!(
+            x.children[0].entry,
+            LexItem::FieldRef(None, Some("*"), None)
+        );
+        assert_eq!(x.children[1].entry, LexItem::TableRef("some_table"));
+        assert_eq!(x.children[2].entry, LexItem::EqOp);
+        let eqop = &x.children[2];
+        assert_eq!(eqop.children.len(), 2);
+        assert_eq!(
+            eqop.children[0].entry,
+            LexItem::FieldRef(None, Some("150"), None)
+        );
+        assert_eq!(
+            eqop.children[1].entry,
+            LexItem::FieldRef(None, Some("142"), None)
+        );
         Ok(())
     }
 }

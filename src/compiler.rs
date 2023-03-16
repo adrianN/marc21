@@ -7,6 +7,7 @@ use std::any::TypeId;
 
 struct TranslationVisitor {
     filter_exprs: Vec<Box<dyn Filter>>,
+    field_exprs: Vec<Box<dyn FieldExpression>>,
     projection_exprs: Vec<Box<dyn FieldExpression>>,
     table_name: String,
 }
@@ -15,6 +16,7 @@ impl TranslationVisitor {
     pub fn new() -> TranslationVisitor {
         TranslationVisitor {
             filter_exprs: Vec::new(),
+            field_exprs: Vec::new(),
             projection_exprs: Vec::new(),
             table_name: "".to_string(),
         }
@@ -97,11 +99,9 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 let children: Vec<LexItem> =
                     node.children.iter().map(|x| x.entry.clone()).collect();
                 assert!(children.len() == 2);
-                if let LexItem::FieldRef(record_type, field_type, subfield_type) = children[0] {
+
+                if let Some(field_expr) = self.field_exprs.pop() {
                     if let LexItem::RegexStr(regexstr) = children[1] {
-                        // todo with the FieldExpr stuff this deserves its own parsing function
-                        let field_expr =
-                            Box::new(FieldRefExpr::new(record_type, field_type, subfield_type));
                         self.filter_exprs
                             .push(Box::new(RegexFilter::new(field_expr, regexstr)));
                     } else {
@@ -113,7 +113,19 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 true
             }
             LexItem::EqOp => {
-                todo!()
+                assert!(self.filter_exprs.len() + self.field_exprs.len() == 2);
+                let mut inps = Vec::new();
+                for filter_expr in self.filter_exprs.drain(0..) {
+                    inps.push(FilterInput::filter(filter_expr));
+                }
+                for field_ref in self.field_exprs.drain(0..) {
+                    inps.push(FilterInput::field_ref(field_ref));
+                }
+                let rhs = inps.pop().unwrap();
+                let lhs = inps.pop().unwrap();
+                self.filter_exprs.push(Box::new(EqFilter::new(lhs, rhs)));
+
+                true
             }
             LexItem::Not => {
                 let argument = self.filter_exprs.pop().unwrap();
@@ -124,7 +136,15 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 unreachable!();
             }
             LexItem::RegexStr(_) => true,
-            LexItem::FieldRef(_, _, _) => true,
+            LexItem::FieldRef(record_type, field_type, subfield_type) => {
+                self.field_exprs.push(Box::new(FieldRefExpr::new(
+                    record_type,
+                    field_type,
+                    subfield_type,
+                )));
+
+                true
+            }
         }
     }
 }
