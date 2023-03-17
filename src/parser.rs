@@ -81,8 +81,8 @@ fn parse_SELECT<'a>(
 ) -> Result<(ParseNode<'a>, usize), String> {
     let c = input.get(offset);
     match c {
-        Some((context, LexItem::Select)) => {
-            let mut select_clause = ParseNode::new(LexItem::Select, context.clone());
+        Some((context, LexItem::KW(Keyword::Select))) => {
+            let mut select_clause = ParseNode::new(LexItem::KW(Keyword::Select), context.clone());
             // parse projection list
             let mut next_offset = offset + 1;
             'the_loop: loop {
@@ -96,10 +96,10 @@ fn parse_SELECT<'a>(
                     select_clause.children.push(fieldref_node);
                     next_offset += 1;
                     match input.get(next_offset) {
-                        Some((context, LexItem::Comma)) => {
+                        Some((context, LexItem::Punctuation(Punctuation::Comma))) => {
                             next_offset += 1;
                         }
-                        Some((context, LexItem::FromKW)) => {
+                        Some((context, LexItem::KW(Keyword::FromKW))) => {
                             next_offset += 1; // skip the from so we're at the talbe ref after the loop
                             break 'the_loop;
                         }
@@ -112,15 +112,16 @@ fn parse_SELECT<'a>(
                 }
             }
             // now we should be at the table ref
-            if let Some((context, LexItem::TableRef(table_name))) = input.get(next_offset) {
-                let table_ref_node = ParseNode::new(LexItem::TableRef(table_name), context.clone());
+            if let Some((context, LexItem::Identifier(table_name))) = input.get(next_offset) {
+                let table_ref_node =
+                    ParseNode::new(LexItem::Identifier(table_name), context.clone());
                 select_clause.children.push(table_ref_node);
             } else {
                 return Err("expected table ref".to_string());
             }
             next_offset += 1;
             // maybe we have a where clause
-            if let Some((context, LexItem::Where)) = input.get(next_offset) {
+            if let Some((context, LexItem::KW(Keyword::Where))) = input.get(next_offset) {
                 let (filter_node, recurse_offset) = parse_expr(input, next_offset + 1)?;
                 next_offset = recurse_offset;
                 select_clause.children.push(filter_node);
@@ -139,7 +140,7 @@ mod test {
     #[test]
     fn parse_select() -> Result<(), String> {
         let x = parse("select *, a.150.b from some_table ")?;
-        assert_eq!(x.entry, LexItem::Select);
+        assert_eq!(x.entry, LexItem::KW(Keyword::Select));
         assert_eq!(x.children.len(), 3);
         assert_eq!(
             x.children[0].entry,
@@ -149,21 +150,24 @@ mod test {
             x.children[1].entry,
             LexItem::FieldRef(Some("a"), Some("150"), Some("b"))
         );
-        assert_eq!(x.children[2].entry, LexItem::TableRef("some_table"));
+        assert_eq!(x.children[2].entry, LexItem::Identifier("some_table"));
         Ok(())
     }
 
     #[test]
     fn parse_where1() -> Result<(), String> {
         let x = parse("select * from some_table where 150 ~ 'aueo'")?;
-        assert_eq!(x.entry, LexItem::Select);
+        assert_eq!(x.entry, LexItem::KW(Keyword::Select));
         assert_eq!(x.children.len(), 3);
         assert_eq!(
             x.children[0].entry,
             LexItem::FieldRef(None, Some("*"), None)
         );
-        assert_eq!(x.children[1].entry, LexItem::TableRef("some_table"));
-        assert_eq!(x.children[2].entry, LexItem::MatchOp);
+        assert_eq!(x.children[1].entry, LexItem::Identifier("some_table"));
+        assert_eq!(
+            x.children[2].entry,
+            LexItem::InfixFunction(InfixFn::MatchOp)
+        );
         let matchop = &x.children[2];
         assert_eq!(matchop.children.len(), 2);
         assert_eq!(
@@ -177,14 +181,14 @@ mod test {
     #[test]
     fn parse_where2() -> Result<(), String> {
         let x = parse("select * from some_table where 150 = 142")?;
-        assert_eq!(x.entry, LexItem::Select);
+        assert_eq!(x.entry, LexItem::KW(Keyword::Select));
         assert_eq!(x.children.len(), 3);
         assert_eq!(
             x.children[0].entry,
             LexItem::FieldRef(None, Some("*"), None)
         );
-        assert_eq!(x.children[1].entry, LexItem::TableRef("some_table"));
-        assert_eq!(x.children[2].entry, LexItem::EqOp);
+        assert_eq!(x.children[1].entry, LexItem::Identifier("some_table"));
+        assert_eq!(x.children[2].entry, LexItem::InfixFunction(InfixFn::EqOp));
         let eqop = &x.children[2];
         assert_eq!(eqop.children.len(), 2);
         assert_eq!(

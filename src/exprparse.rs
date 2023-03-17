@@ -15,9 +15,9 @@ pub fn parse_expr<'a>(
     let (lhs, next_offset) = parse_OR(input, offset)?;
     let c = input.get(next_offset);
     match c {
-        Some((context, LexItem::Or)) => {
+        Some((context, LexItem::InfixFunction(InfixFn::Or))) => {
             // recurse
-            let mut or_expr = ParseNode::new(LexItem::Or, context.clone());
+            let mut or_expr = ParseNode::new(LexItem::InfixFunction(InfixFn::Or), context.clone());
             or_expr.children.push(lhs);
             let (rhs, rhs_offset) = parse_expr(input, next_offset + 1)?;
             or_expr.children.push(rhs);
@@ -37,9 +37,9 @@ fn parse_expr_inner<'a>(
     let (lhs, next_offset) = parse_OR(input, offset)?;
     let c = input.get(next_offset);
     match c {
-        Some((context, LexItem::Or)) => {
+        Some((context, LexItem::InfixFunction(InfixFn::Or))) => {
             // recurse
-            let mut or_expr = ParseNode::new(LexItem::Or, context.clone());
+            let mut or_expr = ParseNode::new(LexItem::InfixFunction(InfixFn::Or), context.clone());
             or_expr.children.push(lhs);
             let (rhs, rhs_offset) = parse_expr_inner(input, next_offset + 1)?;
             or_expr.children.push(rhs);
@@ -57,15 +57,15 @@ fn parse_NOT<'a>(
     offset: usize,
 ) -> Result<(ParseNode<'a>, usize), String> {
     match input.get(offset) {
-        Some((ctx, LexItem::Not)) => {
-            let mut not_expr = ParseNode::new(LexItem::Not, ctx.clone());
+        Some((ctx, LexItem::InfixFunction(InfixFn::Not))) => {
+            let mut not_expr = ParseNode::new(LexItem::InfixFunction(InfixFn::Not), ctx.clone());
             let (rhs, rhs_offset) = parse_expr_inner(input, offset + 1)?;
             not_expr.children.push(rhs);
             Ok((not_expr, rhs_offset))
         }
-        Some((ctx, LexItem::Paren)) => {
+        Some((ctx, LexItem::Punctuation(Punctuation::Paren))) => {
             let (expr, next_offset) = parse_expr_inner(input, offset + 1)?;
-            if let Some((_, LexItem::Paren)) = input.get(next_offset) {
+            if let Some((_, LexItem::Punctuation(Punctuation::Paren))) = input.get(next_offset) {
                 Ok((expr, next_offset + 1))
             } else {
                 Err(format!("Mismatched parenthesis. {:?}", ctx))
@@ -92,31 +92,34 @@ fn parse_TERM<'a>(
 ) -> Result<(ParseNode<'a>, usize), String> {
     let (lhs, next_offset) = parse_NOT(input, offset)?;
     match input.get(next_offset) {
-        Some((ctx, LexItem::EqOp)) => {
+        Some((ctx, LexItem::InfixFunction(InfixFn::EqOp))) => {
             let (rhs, next_offset) = parse_NOT(input, next_offset + 1)?;
-            let mut eqnode = ParseNode::new(LexItem::EqOp, ctx.clone());
+            let mut eqnode = ParseNode::new(LexItem::InfixFunction(InfixFn::EqOp), ctx.clone());
             eqnode.children.push(lhs);
             eqnode.children.push(rhs);
             Ok((eqnode, next_offset))
         }
-        Some((ctx, LexItem::MatchOp)) => match (lhs.entry, input.get(next_offset + 1)) {
-            (
-                LexItem::FieldRef(record_type, field_type, subfield_type),
-                Some((ctx2, LexItem::RegexStr(regex))),
-            ) => {
-                let field_ref_node = ParseNode::new(
+        Some((ctx, LexItem::InfixFunction(InfixFn::MatchOp))) => {
+            match (lhs.entry, input.get(next_offset + 1)) {
+                (
                     LexItem::FieldRef(record_type, field_type, subfield_type),
-                    ctx.clone(),
-                );
-                let mut matchnode = ParseNode::new(LexItem::MatchOp, ctx.clone());
-                matchnode.children.push(field_ref_node);
-                matchnode
-                    .children
-                    .push(ParseNode::new(LexItem::RegexStr(*regex), ctx2.clone()));
-                Ok((matchnode, next_offset + 2))
+                    Some((ctx2, LexItem::RegexStr(regex))),
+                ) => {
+                    let field_ref_node = ParseNode::new(
+                        LexItem::FieldRef(record_type, field_type, subfield_type),
+                        ctx.clone(),
+                    );
+                    let mut matchnode =
+                        ParseNode::new(LexItem::InfixFunction(InfixFn::MatchOp), ctx.clone());
+                    matchnode.children.push(field_ref_node);
+                    matchnode
+                        .children
+                        .push(ParseNode::new(LexItem::RegexStr(*regex), ctx2.clone()));
+                    Ok((matchnode, next_offset + 2))
+                }
+                _ => Err("todo nice message".to_string()),
             }
-            _ => Err("todo nice message".to_string()),
-        },
+        }
         None => Ok((lhs, next_offset)),
         _ => Err("expected = or ~".to_string()),
     }
@@ -148,8 +151,9 @@ pub fn parse_OR<'a>(
     let (lhs, next_offset) = parse_TERM(input, offset)?;
     let c = input.get(next_offset);
     match c {
-        Some((context, LexItem::And)) => {
-            let mut and_expr = ParseNode::new(LexItem::And, context.clone());
+        Some((context, LexItem::InfixFunction(InfixFn::And))) => {
+            let mut and_expr =
+                ParseNode::new(LexItem::InfixFunction(InfixFn::And), context.clone());
             and_expr.children.push(lhs);
             let (rhs, rhs_offset) = parse_OR(input, next_offset + 1)?;
             and_expr.children.push(rhs);
@@ -167,7 +171,7 @@ mod test {
     fn test_parse1() -> Result<(), String> {
         let str1 = "150 ~ 'aoeu'";
         let (p, _) = parse_expr(&lex(str1)?, 0)?;
-        assert_eq!(p.entry, LexItem::MatchOp);
+        assert_eq!(p.entry, LexItem::InfixFunction(InfixFn::MatchOp));
         assert_eq!(p.children.len(), 2);
         assert_eq!(
             p.children[0].entry,
@@ -181,12 +185,12 @@ mod test {
     fn test_parse2() -> Result<(), String> {
         let str1 = "not  150 ~ 'aoeu'";
         let (p, _) = parse_expr(&lex(str1)?, 0)?;
-        assert_eq!(p.entry, LexItem::Not);
+        assert_eq!(p.entry, LexItem::InfixFunction(InfixFn::Not));
         assert_eq!(p.children.len(), 1);
 
         let str1 = "not (150 ~ 'aoeu')";
         let (p2, _) = parse_expr(&lex(str1)?, 0)?;
-        assert_eq!(p2.entry, LexItem::Not);
+        assert_eq!(p2.entry, LexItem::InfixFunction(InfixFn::Not));
         assert_eq!(p2.children.len(), 1);
 
         assert_eq!(p, p2);
@@ -207,11 +211,11 @@ mod test {
             assert_eq!(
                 v,
                 vec![
-                    LexItem::And,
-                    LexItem::MatchOp,
+                    LexItem::InfixFunction(InfixFn::And),
+                    LexItem::InfixFunction(InfixFn::MatchOp),
                     LexItem::FieldRef(None, Some("150"), None),
                     LexItem::RegexStr("aoeu"),
-                    LexItem::MatchOp,
+                    LexItem::InfixFunction(InfixFn::MatchOp),
                     LexItem::FieldRef(None, Some("151"), None),
                     LexItem::RegexStr("bcd")
                 ]
@@ -229,11 +233,11 @@ mod test {
                 vec![
                     LexItem::FieldRef(None, Some("150"), None),
                     LexItem::RegexStr("aoeu"),
-                    LexItem::MatchOp,
+                    LexItem::InfixFunction(InfixFn::MatchOp),
                     LexItem::FieldRef(None, Some("151"), None),
                     LexItem::RegexStr("bcd"),
-                    LexItem::MatchOp,
-                    LexItem::And
+                    LexItem::InfixFunction(InfixFn::MatchOp),
+                    LexItem::InfixFunction(InfixFn::And)
                 ]
             );
         }
@@ -254,15 +258,15 @@ mod test {
             assert_eq!(
                 v,
                 vec![
-                    LexItem::And,
-                    LexItem::MatchOp,
+                    LexItem::InfixFunction(InfixFn::And),
+                    LexItem::InfixFunction(InfixFn::MatchOp),
                     LexItem::FieldRef(None, Some("150"), None),
                     LexItem::RegexStr("aoeu"),
-                    LexItem::And,
-                    LexItem::MatchOp,
+                    LexItem::InfixFunction(InfixFn::And),
+                    LexItem::InfixFunction(InfixFn::MatchOp),
                     LexItem::FieldRef(None, Some("151"), None),
                     LexItem::RegexStr("bcd"),
-                    LexItem::MatchOp,
+                    LexItem::InfixFunction(InfixFn::MatchOp),
                     LexItem::FieldRef(None, Some("152"), None),
                     LexItem::RegexStr("efg")
                 ]
@@ -280,15 +284,15 @@ mod test {
                 vec![
                     LexItem::FieldRef(None, Some("150"), None),
                     LexItem::RegexStr("aoeu"),
-                    LexItem::MatchOp,
+                    LexItem::InfixFunction(InfixFn::MatchOp),
                     LexItem::FieldRef(None, Some("151"), None),
                     LexItem::RegexStr("bcd"),
-                    LexItem::MatchOp,
+                    LexItem::InfixFunction(InfixFn::MatchOp),
                     LexItem::FieldRef(None, Some("152"), None),
                     LexItem::RegexStr("efg"),
-                    LexItem::MatchOp,
-                    LexItem::And,
-                    LexItem::And
+                    LexItem::InfixFunction(InfixFn::MatchOp),
+                    LexItem::InfixFunction(InfixFn::And),
+                    LexItem::InfixFunction(InfixFn::And)
                 ]
             );
         }

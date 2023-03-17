@@ -38,7 +38,7 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
 
     fn post(&mut self, node: &ParseNode) -> bool {
         match node.entry {
-            LexItem::Select => {
+            LexItem::KW(Keyword::Select) => {
                 // FieldRef children of select are projections
                 for c in &node.children {
                     if let LexItem::FieldRef(r, f, s) = c.entry {
@@ -48,20 +48,20 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 }
                 true
             }
-            LexItem::Comma => {
+            LexItem::Punctuation(Punctuation::Comma) => {
                 unreachable!()
             }
-            LexItem::FromKW => {
+            LexItem::KW(Keyword::FromKW) => {
                 unreachable!()
             }
-            LexItem::TableRef(table_name) => {
+            LexItem::Identifier(table_name) => {
                 self.table_name = table_name.to_string();
                 true
             }
-            LexItem::Where => {
+            LexItem::KW(Keyword::Where) => {
                 unreachable!()
             }
-            LexItem::Or => {
+            LexItem::InfixFunction(InfixFn::Or) => {
                 let second: Box<dyn Filter> = self.filter_exprs.pop().unwrap();
                 let first: Box<dyn Filter> = self.filter_exprs.pop().unwrap();
                 let mut arguments = Vec::new();
@@ -86,7 +86,7 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 */
                 true
             }
-            LexItem::And => {
+            LexItem::InfixFunction(InfixFn::And) => {
                 let second: Box<dyn Filter> = self.filter_exprs.pop().unwrap();
                 let first: Box<dyn Filter> = self.filter_exprs.pop().unwrap();
                 let mut arguments = Vec::new();
@@ -95,7 +95,7 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 self.filter_exprs.push(Box::new(AndFilter::new(arguments)));
                 true
             }
-            LexItem::MatchOp => {
+            LexItem::InfixFunction(InfixFn::MatchOp) => {
                 let children: Vec<LexItem> =
                     node.children.iter().map(|x| x.entry.clone()).collect();
                 assert!(children.len() == 2);
@@ -112,7 +112,7 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 }
                 true
             }
-            LexItem::EqOp => {
+            LexItem::InfixFunction(InfixFn::EqOp) => {
                 assert!(self.filter_exprs.len() + self.field_exprs.len() == 2);
                 let mut inps = Vec::new();
                 for filter_expr in self.filter_exprs.drain(0..) {
@@ -127,12 +127,12 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
 
                 true
             }
-            LexItem::Not => {
+            LexItem::InfixFunction(InfixFn::Not) => {
                 let argument = self.filter_exprs.pop().unwrap();
                 self.filter_exprs.push(Box::new(NotFilter::new(argument)));
                 true
             }
-            LexItem::Paren => {
+            LexItem::Punctuation(Punctuation::Paren) => {
                 unreachable!();
             }
             LexItem::RegexStr(_) => true,
