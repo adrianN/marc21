@@ -16,7 +16,6 @@ pub enum InfixFn {
     And,
     MatchOp,
     EqOp,
-    Not, // technically not infix but w/e
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,7 +29,7 @@ pub enum LexItem<'a> {
     KW(Keyword),
     InfixFunction(InfixFn),
     Punctuation(Punctuation),
-    TableRef(&'a str),
+    Identifier(&'a str),
     RegexStr(&'a str),
     FieldRef(Option<&'a str>, Option<&'a str>, Option<&'a str>),
 }
@@ -67,7 +66,7 @@ pub fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
         .iter()
         .map(|x| Regex::new(x).unwrap())
         .collect();
-    let infix_regexes: Vec<regex::Regex> = [r"^or", r"^and", r"^~", r"^=", r"^not"]
+    let infix_regexes: Vec<regex::Regex> = [r"^or", r"^and", r"^~", r"^="]
         .iter()
         .map(|x| Regex::new(x).unwrap())
         .collect();
@@ -108,14 +107,7 @@ pub fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
                 result.push((
                     ItemContext(i),
                     LexItem::InfixFunction(
-                        [
-                            InfixFn::Or,
-                            InfixFn::And,
-                            InfixFn::MatchOp,
-                            InfixFn::EqOp,
-                            InfixFn::Not,
-                        ][j]
-                            .clone(),
+                        [InfixFn::Or, InfixFn::And, InfixFn::MatchOp, InfixFn::EqOp][j].clone(),
                     ),
                 ));
                 i += cap.get(0).unwrap().end();

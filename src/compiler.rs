@@ -127,7 +127,7 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
 
                 true
             }
-            LexItem::InfixFunction(InfixFn::Not) => {
+            LexItem::Identifier("not") => {
                 let argument = self.filter_exprs.pop().unwrap();
                 self.filter_exprs.push(Box::new(NotFilter::new(argument)));
                 true

@@ -2,7 +2,8 @@
 EXPR -> OR or EXPR | OR
 OR -> TERM and OR  | TERM
 TERM -> NOT ~ 'regexstr' | NOT = TERM | NOT
-NOT -> not expr | field_ref | ( expr )
+NOT -> IDENTIFIER ( LIST_OF_EXPR ) | field_ref | ( expr )
+LIST_OF_EXPR -> expr | expr , LIST_OF_EXPR
 
 x and y or z -> (x and y) or z
 */
@@ -52,16 +53,59 @@ fn parse_expr_inner<'a>(
     }
 }
 
+fn parse_expr_list<'a>(
+    input: &[(ItemContext, LexItem<'a>)],
+    offset: usize,
+) -> Result<(Vec<ParseNode<'a>>, usize), String> {
+    let mut result = Vec::new();
+    let mut cur_off = offset;
+    loop {
+        dbg!(input.get(cur_off));
+        let (exp, off) = parse_expr_inner(input, cur_off)?;
+        result.push(exp);
+        match input.get(off) {
+            Some((_, LexItem::Punctuation(Punctuation::Comma))) => {
+                cur_off = off + 1;
+            }
+            x => {
+                dbg!(&x);
+                cur_off = off;
+                break;
+            }
+        }
+    }
+    dbg!(&result, cur_off);
+    Ok((result, cur_off))
+}
+
 fn parse_NOT<'a>(
     input: &[(ItemContext, LexItem<'a>)],
     offset: usize,
 ) -> Result<(ParseNode<'a>, usize), String> {
+    dbg!(input.get(offset));
     match input.get(offset) {
-        Some((ctx, LexItem::InfixFunction(InfixFn::Not))) => {
-            let mut not_expr = ParseNode::new(LexItem::InfixFunction(InfixFn::Not), ctx.clone());
-            let (rhs, rhs_offset) = parse_expr_inner(input, offset + 1)?;
-            not_expr.children.push(rhs);
-            Ok((not_expr, rhs_offset))
+        Some((ctx, LexItem::Identifier(n))) => {
+            dbg!(&n);
+            if let Some((ctx1, LexItem::Punctuation(Punctuation::Paren))) = input.get(offset + 1) {
+                let (children, next_offset) = parse_expr_list(input, offset + 2)?;
+                let mut identifier_expr = ParseNode::new(LexItem::Identifier(n), ctx.clone());
+                identifier_expr.children = children;
+                if let Some((ctx2, LexItem::Punctuation(Punctuation::Paren))) =
+                    input.get(next_offset)
+                {
+                    return Ok((identifier_expr, next_offset + 2));
+                } else {
+                    return Err(format!(
+                        "expected ')' after expr list found {:?}",
+                        input.get(next_offset)
+                    ));
+                }
+            } else {
+                Err(format!(
+                    "expected open paren after identifier, found {:?}",
+                    input.get(offset + 1)
+                ))
+            }
         }
         Some((ctx, LexItem::Punctuation(Punctuation::Paren))) => {
             let (expr, next_offset) = parse_expr_inner(input, offset + 1)?;
@@ -79,7 +123,7 @@ fn parse_NOT<'a>(
             offset + 1,
         )),
         Some((ctx, i)) => Err(format!(
-            "Expected 'not' or '(' but found {:?} at {:?}",
+            "Expected identifier, field ref, or '(' but found {:?} at {:?}",
             i, ctx
         )),
         _ => Err("Expected 'not' or '(' but reached end of input".to_string()),
@@ -91,6 +135,8 @@ fn parse_TERM<'a>(
     offset: usize,
 ) -> Result<(ParseNode<'a>, usize), String> {
     let (lhs, next_offset) = parse_NOT(input, offset)?;
+    dbg!(&lhs);
+    dbg!(input.get(next_offset));
     match input.get(next_offset) {
         Some((ctx, LexItem::InfixFunction(InfixFn::EqOp))) => {
             let (rhs, next_offset) = parse_NOT(input, next_offset + 1)?;
@@ -120,8 +166,7 @@ fn parse_TERM<'a>(
                 _ => Err("todo nice message".to_string()),
             }
         }
-        None => Ok((lhs, next_offset)),
-        _ => Err("expected = or ~".to_string()),
+        _ => Ok((lhs, next_offset)),
     }
 }
 
@@ -183,17 +228,11 @@ mod test {
 
     #[test]
     fn test_parse2() -> Result<(), String> {
-        let str1 = "not  150 ~ 'aoeu'";
+        let str1 = "not (150 ~ 'aoeu') ";
         let (p, _) = parse_expr(&lex(str1)?, 0)?;
-        assert_eq!(p.entry, LexItem::InfixFunction(InfixFn::Not));
+        assert_eq!(p.entry, LexItem::Identifier("not"));
         assert_eq!(p.children.len(), 1);
 
-        let str1 = "not (150 ~ 'aoeu')";
-        let (p2, _) = parse_expr(&lex(str1)?, 0)?;
-        assert_eq!(p2.entry, LexItem::InfixFunction(InfixFn::Not));
-        assert_eq!(p2.children.len(), 1);
-
-        assert_eq!(p, p2);
         Ok(())
     }
 
@@ -296,6 +335,17 @@ mod test {
                 ]
             );
         }
+        Ok(())
+    }
+    #[test]
+    fn test_parse5() -> Result<(), String> {
+        let str = "not_null(150)";
+        let (p, _) = parse_expr(&lex(str)?, 0)?;
+        assert_eq!(p.entry, LexItem::Identifier("not_null"));
+        assert_eq!(
+            p.children.get(0).map(|x| x.entry.clone()),
+            Some(LexItem::FieldRef(None, Some("150"), None))
+        );
         Ok(())
     }
 }
