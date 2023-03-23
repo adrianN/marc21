@@ -23,8 +23,20 @@ impl TranslationVisitor {
     }
 
     fn flatten(mut x: Box<dyn Filter>, arguments: &mut Vec<Box<dyn Filter>>) {
-        if x.type_id() == TypeId::of::<OrFilter>() || x.type_id() == TypeId::of::<AndFilter>() {
-            arguments.extend(std::mem::take(x.children().unwrap()));
+        if x.type_id() == TypeId::of::<OrFilter>() {
+            match x.as_any().downcast_mut::<OrFilter>() {
+                Some(b) => {
+                    arguments.extend(std::mem::take(&mut b.children));
+                }
+                None => panic!("&x isn't a OrFilter!"),
+            };
+        } else if x.type_id() == TypeId::of::<AndFilter>() {
+            match x.as_any().downcast_mut::<AndFilter>() {
+                Some(b) => {
+                    arguments.extend(std::mem::take(&mut b.children));
+                }
+                None => panic!("&x isn't a AndFilter!"),
+            };
         } else {
             arguments.push(x);
         }
@@ -114,15 +126,8 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
             }
             LexItem::InfixFunction(InfixFn::EqOp) => {
                 assert!(self.filter_exprs.len() + self.field_exprs.len() == 2);
-                let mut inps = Vec::new();
-                for filter_expr in self.filter_exprs.drain(0..) {
-                    inps.push(FilterInput::filter(filter_expr));
-                }
-                for field_ref in self.field_exprs.drain(0..) {
-                    inps.push(FilterInput::field_ref(field_ref));
-                }
-                let rhs = inps.pop().unwrap();
-                let lhs = inps.pop().unwrap();
+                let rhs = get_input(&mut self.filter_exprs, &mut self.field_exprs).unwrap();
+                let lhs = get_input(&mut self.filter_exprs, &mut self.field_exprs).unwrap();
                 self.filter_exprs.push(Box::new(EqFilter::new(lhs, rhs)));
 
                 true
@@ -130,6 +135,18 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
             LexItem::Identifier("not") => {
                 let argument = self.filter_exprs.pop().unwrap();
                 self.filter_exprs.push(Box::new(NotFilter::new(argument)));
+                true
+            }
+            LexItem::Identifier("not_null") => {
+                let argument = get_input(&mut self.filter_exprs, &mut self.field_exprs).unwrap();
+                self.filter_exprs
+                    .push(Box::new(NotNullFilter::new(argument)));
+                true
+            }
+            LexItem::Identifier("is_null") => {
+                let argument = get_input(&mut self.filter_exprs, &mut self.field_exprs).unwrap();
+                self.filter_exprs
+                    .push(Box::new(IsNullFilter::new(argument)));
                 true
             }
             LexItem::Punctuation(Punctuation::Paren) => {
@@ -146,6 +163,19 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 true
             }
         }
+    }
+}
+
+fn get_input(
+    filters: &mut Vec<Box<dyn Filter>>,
+    field_exprs: &mut Vec<Box<dyn FieldExpression>>,
+) -> Option<FilterInput> {
+    if let Some(f) = filters.pop() {
+        Some(FilterInput::filter(f))
+    } else if let Some(f) = field_exprs.pop() {
+        Some(FilterInput::field_ref(f))
+    } else {
+        None
     }
 }
 

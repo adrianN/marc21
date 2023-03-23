@@ -27,7 +27,7 @@ pub trait Filter: Any {
         }
         (true_pos, null_pos)
     }
-    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>>;
+    fn as_any(&mut self) -> &mut dyn Any;
 }
 
 pub struct RegexFilter {
@@ -59,13 +59,13 @@ impl Filter for RegexFilter {
             TriStateBool::Null
         }
     }
-    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
-        None
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
 pub struct AndFilter {
-    children: Vec<Box<dyn Filter>>,
+    pub children: Vec<Box<dyn Filter>>,
 }
 
 impl AndFilter {
@@ -94,8 +94,8 @@ impl Filter for AndFilter {
             TriStateBool::True
         }
     }
-    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
-        Some(&mut self.children)
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -129,8 +129,8 @@ impl Filter for OrFilter {
             TriStateBool::False
         }
     }
-    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
-        Some(&mut self.children)
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -148,9 +148,70 @@ impl Filter for NotFilter {
     fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
         !self.child.evaluate_predicate(r)
     }
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
+    }
+}
 
-    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
-        None
+pub struct NotNullFilter {
+    child: FilterInput,
+}
+
+impl NotNullFilter {
+    pub fn new(child: FilterInput) -> NotNullFilter {
+        NotNullFilter { child }
+    }
+}
+
+impl Filter for NotNullFilter {
+    fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
+        match &self.child {
+            FilterInput::filter(f) => match f.evaluate_predicate(r) {
+                TriStateBool::Null => TriStateBool::False,
+                _ => TriStateBool::True,
+            },
+            FilterInput::field_ref(f) => {
+                if f.compute(r).next().is_some() {
+                    TriStateBool::True
+                } else {
+                    TriStateBool::False
+                }
+            }
+        }
+    }
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
+    }
+}
+
+pub struct IsNullFilter {
+    child: FilterInput,
+}
+
+impl IsNullFilter {
+    pub fn new(child: FilterInput) -> IsNullFilter {
+        IsNullFilter { child }
+    }
+}
+
+impl Filter for IsNullFilter {
+    fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
+        match &self.child {
+            FilterInput::filter(f) => match f.evaluate_predicate(r) {
+                TriStateBool::Null => TriStateBool::True,
+                _ => TriStateBool::False,
+            },
+            FilterInput::field_ref(f) => {
+                if f.compute(r).next().is_some() {
+                    TriStateBool::False
+                } else {
+                    TriStateBool::True
+                }
+            }
+        }
+    }
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -204,8 +265,8 @@ impl Filter for EqFilter {
             _ => unreachable!(),
         }
     }
-    fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
-        None
+    fn as_any(&mut self) -> &mut dyn Any {
+        self
     }
 }
 
@@ -261,9 +322,6 @@ mod test {
     }
 
     impl Filter for TestFilter {
-        fn children(&mut self) -> Option<&mut Vec<Box<dyn Filter>>> {
-            None
-        }
         fn evaluate_predicate(&self, r: &dyn Record) -> TriStateBool {
             let i = r
                 .field_iter(Some(0))
@@ -276,6 +334,9 @@ mod test {
                 })
                 .unwrap();
             self.results[i]
+        }
+        fn as_any(&mut self) -> &mut dyn Any {
+            self
         }
     }
 
