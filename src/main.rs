@@ -2,6 +2,7 @@
 use std::env;
 use std::fs::File;
 use std::io::BufReader;
+use std::io::{Read, Seek};
 pub mod compiler;
 pub mod exprparse;
 pub mod field_expression;
@@ -30,7 +31,7 @@ fn get_header(data: &[u8]) -> MarcHeader {
     }
 }
 
-fn print_record(r: &dyn Record) {
+pub fn print_record(r: &dyn Record) {
     print!("Record: ");
     for field in r.field_iter(None) {
         println!("{}\t{}", field.field_type, field.utf8_data());
@@ -42,9 +43,17 @@ fn find_table(table_name: &str) -> Result<MarcReader<File>, std::io::Error> {
     Ok(MarcReader::new(reader))
 }
 
-fn run_sql(sql_text: &str) -> Result<(), String> {
+pub fn run_sql<T, H>(
+    sql_text: &str,
+    make_reader: fn(&str) -> Result<MarcReader<T>, std::io::Error>,
+    mut handle_record: H,
+) -> Result<(), String>
+where
+    T: Seek + Read,
+    H: FnMut(&dyn Record) -> (),
+{
     let mut compile_result = compiler::compile(sql_text)?;
-    let mut marc_reader = find_table(&compile_result.table_name).unwrap();
+    let mut marc_reader = make_reader(&compile_result.table_name).unwrap();
     let projection = compile_result.projection;
     let filter = compile_result.filter_expr;
 
@@ -64,7 +73,7 @@ fn run_sql(sql_text: &str) -> Result<(), String> {
         projection.project(&mut boxs[..remaining]);
         for r in boxs.into_iter().take(remaining) {
             //for r in batch.records {
-            print_record(&*r);
+            handle_record(&*r);
             //r.to_marc21(&mut stdout);
             //stdout.write(b"\n");
         }
@@ -74,7 +83,9 @@ fn run_sql(sql_text: &str) -> Result<(), String> {
 
 fn main() -> Result<(), String> {
     let args: Vec<String> = env::args().collect();
-    run_sql(&args[1])?;
+    run_sql(&args[1], find_table, |x: &dyn Record| {
+        print_record(x);
+    })?;
     Ok(())
     //    let filename = &args[1];
     //    let filter_str = &args[2];
@@ -209,4 +220,55 @@ fn main() -> Result<(), String> {
     //        //        //      }
     //        //    }
     //    */
+}
+
+#[cfg(test)]
+mod test {
+    use crate::marcrecord::MarcReader;
+    use crate::ownedrecord::*;
+    use crate::record::*;
+    use crate::{print_record, run_sql};
+    use std::io::BufReader;
+    use std::io::Cursor;
+
+    static STR : &[u8]= "00827nz  a2200241nc 4500\
+001001000000\
+003000700010\
+005001700017\
+008004100034\
+024005100075\
+035002200126\
+035002200148\
+035002900170\
+040004000199\
+042000900239\
+065001600248\
+075001400264\
+079000900278\
+083004200287\
+150001200329\
+550019200341\
+670001200533\
+913004000545\
+040000028DE-10120100106125650.0880701n||azznnbabn           | ana    |c7 a4000002-30http://d-nb.info/gnd/4000002-32gnd  a(DE-101)040000028  a(DE-588)4000002-3  z(DE-588c)4000002-39v:zg  aDE-101cDE-1019r:DE-101bgerd0832  agnd1  a31.9b2sswd  bs2gndgen  agqs04a621.3815379d:29t:2010-01-06223/ger  aA 302 D  0(DE-101)0402724270(DE-588)4027242-40https://d-nb.info/gnd/4027242-4aIntegrierte Schaltung4obal4https://d-nb.info/standards/elementset/gnd#broaderTermGeneralwriOberbegriff allgemein  aVorlage  SswdisaA 302 D0(DE-588c)4000002-3".as_bytes();
+
+    fn test_reader(
+        _: &str,
+    ) -> Result<MarcReader<BufReader<Cursor<&'static [u8]>>>, std::io::Error> {
+        let c = Cursor::new(STR);
+        let breader = BufReader::new(c);
+        Ok(MarcReader::new(breader))
+    }
+
+    #[test]
+    fn test1() -> Result<(), String> {
+        let mut v: Vec<OwnedRecord> = Vec::new();
+        run_sql("select * from bla", test_reader, |r: &dyn Record| {
+            let mut or = OwnedRecord::new();
+            or.add_field_from_iter(&mut r.field_iter(None));
+            v.push(or);
+        })?;
+        assert_eq!(v.len(), 1);
+        Ok(())
+    }
 }
