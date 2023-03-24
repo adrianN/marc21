@@ -166,7 +166,7 @@ pub fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
 }
 
 mod tests {
-    use crate::parser::*;
+    use crate::lexer::*;
     #[test]
     fn test_extract_regex_str() -> Result<(), ()> {
         let (i1, str1) = extract_regex_str("'aoeu'")?;

@@ -1,6 +1,5 @@
 use crate::field_expression::FieldExpression;
 use crate::ownedrecord::OwnedRecord;
-use crate::parsedrecord::ParsedRecord;
 use crate::Record;
 
 pub struct Projection {

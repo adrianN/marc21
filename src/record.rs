@@ -1,5 +1,3 @@
-use crate::ownedrecord::OwnedRecord;
-
 pub struct OwnedRecordField {
     pub field_type: usize,
     pub data: Vec<u8>,

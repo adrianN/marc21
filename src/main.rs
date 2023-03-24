@@ -1,7 +1,6 @@
 #![allow(dead_code)]
 use std::env;
 use std::fs::File;
-use std::io::BufReader;
 use std::io::{Read, Seek};
 pub mod compiler;
 pub mod exprparse;
@@ -21,8 +20,6 @@ use marcrecord::MarcHeader;
 use marcrecord::MarcReader;
 //use marcrecord::MarcRecord;
 //use parsedrecord::*;
-use field_expression::*;
-use projection::*;
 use record::*;
 
 fn get_header(data: &[u8]) -> MarcHeader {
