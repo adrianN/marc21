@@ -86,12 +86,11 @@ fn parse_NOT<'a>(
     match input.get(offset) {
         Some((ctx, LexItem::Identifier(n))) => {
             dbg!(&n);
-            if let Some((ctx1, LexItem::Punctuation(Punctuation::Paren))) = input.get(offset + 1) {
+            if let Some((_, LexItem::Punctuation(Punctuation::Paren))) = input.get(offset + 1) {
                 let (children, next_offset) = parse_expr_list(input, offset + 2)?;
                 let mut identifier_expr = ParseNode::new(LexItem::Identifier(n), ctx.clone());
                 identifier_expr.children = children;
-                if let Some((ctx2, LexItem::Punctuation(Punctuation::Paren))) =
-                    input.get(next_offset)
+                if let Some((_, LexItem::Punctuation(Punctuation::Paren))) = input.get(next_offset)
                 {
                     return Ok((identifier_expr, next_offset + 2));
                 } else {

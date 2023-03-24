@@ -96,12 +96,12 @@ impl Record for OwnedRecord {
             write_usize(start, 5, writer)?;
             start += field_len;
         }
-        writer.write(&[b'\x1e'])?;
+        writer.write_all(&[b'\x1e'])?;
         for field in self.field_data.iter() {
             writer.write_all(field.as_slice())?;
-            writer.write(&[b'\x1e'])?;
+            writer.write_all(&[b'\x1e'])?;
         }
-        writer.write(&[b'\x1d'])?;
+        writer.write_all(&[b'\x1d'])?;
         Ok(())
     }
 }

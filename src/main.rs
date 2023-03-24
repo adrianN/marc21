@@ -47,7 +47,7 @@ pub fn run_sql<T, H>(
 ) -> Result<(), String>
 where
     T: Seek + Read,
-    H: FnMut(&dyn Record) -> (),
+    H: FnMut(&dyn Record),
 {
     let mut compile_result = compiler::compile(sql_text)?;
     let mut marc_reader = make_reader(&compile_result.table_name).unwrap();

@@ -124,7 +124,7 @@ pub fn lex(input: &str) -> Result<Vec<(ItemContext, LexItem)>, String> {
                 continue 'outer;
             }
         }
-        if let Some(cap) = regexstr_regex.captures(&input[i..]) {
+        if regexstr_regex.captures(&input[i..]).is_some() {
             if let Ok((end, slice)) = extract_regex_str(&input[i..]) {
                 result.push((ItemContext(i), LexItem::RegexStr(slice)));
                 i += end;
