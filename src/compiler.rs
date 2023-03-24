@@ -65,10 +65,6 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
             LexItem::KW(Keyword::FromKW) => {
                 unreachable!()
             }
-            LexItem::Identifier(table_name) => {
-                self.table_name = table_name.to_string();
-                true
-            }
             LexItem::KW(Keyword::Where) => {
                 unreachable!()
             }
@@ -146,6 +142,10 @@ impl<'a> ParseTreeVisitor<'a> for TranslationVisitor {
                 let argument = get_input(&mut self.filter_exprs, &mut self.field_exprs).unwrap();
                 self.filter_exprs
                     .push(Box::new(IsNullFilter::new(argument)));
+                true
+            }
+            LexItem::Identifier(table_name) => {
+                self.table_name = table_name.to_string();
                 true
             }
             LexItem::Punctuation(Punctuation::Paren) => {
