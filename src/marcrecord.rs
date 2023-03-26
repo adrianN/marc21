@@ -277,6 +277,13 @@ where
                 break;
             }
         }
+        if i == 0 {
+            use std::io::{Error, ErrorKind};
+            return Err(Error::new(
+                ErrorKind::InvalidData,
+                "failed to read a single record",
+            ));
+        }
         // mem full, backpedal
         //self.base_reader.seek_relative(-24);
         // TODO seek_relative is unstable in my version of rust
