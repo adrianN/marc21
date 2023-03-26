@@ -251,7 +251,52 @@ mod test {
 670001200533\
 913004000545\
 040000028DE-10120100106125650.0880701n||azznnbabn           | ana    |c7 a4000002-30http://d-nb.info/gnd/4000002-32gnd  a(DE-101)040000028  a(DE-588)4000002-3  z(DE-588c)4000002-39v:zg  aDE-101cDE-1019r:DE-101bgerd0832  agnd1  a31.9b2sswd  bs2gndgen  agqs04a621.3815379d:29t:2010-01-06223/ger  aA 302 D  0(DE-101)0402724270(DE-588)4027242-40https://d-nb.info/gnd/4027242-4aIntegrierte Schaltung4obal4https://d-nb.info/standards/elementset/gnd#broaderTermGeneralwriOberbegriff allgemein  aVorlage  SswdisaA 302 D0(DE-588c)4000002-3\
-02554naa a2200553uc 45000010011000000030007000110050017000180070015000350080041000500160023000910220014001140240035001280240049001630350026002120350022002380400028002600410008002880440010002960820033003060830029003390840014003681000036003822450230004183000039006483360026006873370032007133380037007455060092007825830070008746530020009446530026009646530037009907000028010277000033010557000031010887000033011197000035011527000028011877100049012157730084012647730190013488500021015388560064015598560088016238560077017118560046017888830083018348830083019171203058578DE-10120200120180536.0cr||||||||||||200118s2019    gw |||||o|||| 00||||eng  7 2DE-101a1203058578  a1479-58767 a10.1186/s12967-019-2032-y2doi7 2urnaurn:nbn:de:101:1-2020011823361862943632  a(DE-599)DNB1203058578  a(OCoLC)1196655458  a1140bgercDE-101d9999  aeng  cXA-DE7481\\pa616.994qDE-101223kdnb7 82\\pa610qDE-101223sdnb  aR-RZ2lcc1 aZeng, Jiang-huieVerfasser4aut10aPrognosis of clear cell renal cell carcinoma (ccRCC) based on a six-lncRNA-based risk score: an investigation based on RNA-sequencing datacby Jiang-hui Zeng, Wei Lu, Liang Liang, Gang Chen, Hui-hua Lan, Xiu-Yun Liang, Xu Zhu  aOnline-Ressourcebonline resource.  aTextbtxt2rdacontent  aComputermedienbc2rdamedia  aOnline-Ressourcebcr2rdacarrier0 aOpen AccessfUnrestricted online accessuhttp://purl.org/coar/access_right/c_abf22star1 aArchivierung/Langzeitarchivierung gewährleistet5DE-1012pdager 0a(lcsh)Medicine. 0aBiomedicine, general. 0aMedicine/Public Health, general.1 aLu, WeieVerfasser4aut1 aLiang, LiangeVerfasser4aut1 aChen, GangeVerfasser4aut1 aLan, Hui-huaeVerfasser4aut1 aLiang, Xiu-YuneVerfasser4aut1 aZhu, XueVerfasser4aut2 aSpringerLink (Online service)eSonstige4oth187|||sgvolume:17gnumber:1gday:23gmonth:8gyear:2019gpages:1-20gdate:12.201908iEnthalten intJournal of translational medicinedLondon : BioMed Central, 2003-hOnline-Ressourceg17, Heft 1 (23.8.2019), 1-20, 12.2019w(DE-600)2118570-0w(DE-101)02505497Xx1479-5876  aDE-101aaDE-101b40uhttps://doi.org/10.1186/s12967-019-2032-yxResolving-System40uhttps://nbn-resolving.org/urn:nbn:de:101:1-2020011823361862943632xResolving-System 0uhttps://d-nb.info/1203058578/34xLangzeitarchivierung Nationalbibliothek4 uhttps://doi.org/10.1186/s12967-019-2032-y0 81\\paaepknc0,98426d20200119qDE-101uhttps://d-nb.info/provenance/plan#aepkn0 82\\paaepsgc0,99929d20200119qDE-101uhttps://d-nb.info/provenance/plan#aepsg".as_bytes();
+02554naa a2200553uc 4500\
+001001100000\
+003000700011\
+005001700018\
+007001500035\
+008004100050\
+016002300091\
+022001400114\
+024003500128\
+024004900163\
+035002600212\
+035002200238\
+040002800260\
+041000800288\
+044001000296\
+082003300306\
+083002900339\
+084001400368\
+100003600382\
+245023000418\
+300003900648\
+336002600687\
+337003200713\
+338003700745\
+506009200782\
+583007000874\
+653002000944\
+653002600964\
+653003700990\
+700002801027\
+700003301055\
+700003101088\
+700003301119\
+700003501152\
+700002801187\
+710004901215\
+773008401264\
+773019001348\
+850002101538\
+856006401559\
+856008801623\
+856007701711\
+856004601788\
+883008301834\
+883008301917\
+1203058578DE-10120200120180536.0cr||||||||||||200118s2019    gw |||||o|||| 00||||eng  7 2DE-101a1203058578  a1479-58767 a10.1186/s12967-019-2032-y2doi7 2urnaurn:nbn:de:101:1-2020011823361862943632  a(DE-599)DNB1203058578  a(OCoLC)1196655458  a1140bgercDE-101d9999  aeng  cXA-DE7481\\pa616.994qDE-101223kdnb7 82\\pa610qDE-101223sdnb  aR-RZ2lcc1 aZeng, Jiang-huieVerfasser4aut10aPrognosis of clear cell renal cell carcinoma (ccRCC) based on a six-lncRNA-based risk score: an investigation based on RNA-sequencing datacby Jiang-hui Zeng, Wei Lu, Liang Liang, Gang Chen, Hui-hua Lan, Xiu-Yun Liang, Xu Zhu  aOnline-Ressourcebonline resource.  aTextbtxt2rdacontent  aComputermedienbc2rdamedia  aOnline-Ressourcebcr2rdacarrier0 aOpen AccessfUnrestricted online accessuhttp://purl.org/coar/access_right/c_abf22star1 aArchivierung/Langzeitarchivierung gewährleistet5DE-1012pdager 0a(lcsh)Medicine. 0aBiomedicine, general. 0aMedicine/Public Health, general.1 aLu, WeieVerfasser4aut1 aLiang, LiangeVerfasser4aut1 aChen, GangeVerfasser4aut1 aLan, Hui-huaeVerfasser4aut1 aLiang, Xiu-YuneVerfasser4aut1 aZhu, XueVerfasser4aut2 aSpringerLink (Online service)eSonstige4oth187|||sgvolume:17gnumber:1gday:23gmonth:8gyear:2019gpages:1-20gdate:12.201908iEnthalten intJournal of translational medicinedLondon : BioMed Central, 2003-hOnline-Ressourceg17, Heft 1 (23.8.2019), 1-20, 12.2019w(DE-600)2118570-0w(DE-101)02505497Xx1479-5876  aDE-101aaDE-101b40uhttps://doi.org/10.1186/s12967-019-2032-yxResolving-System40uhttps://nbn-resolving.org/urn:nbn:de:101:1-2020011823361862943632xResolving-System 0uhttps://d-nb.info/1203058578/34xLangzeitarchivierung Nationalbibliothek4 uhttps://doi.org/10.1186/s12967-019-2032-y0 81\\paaepknc0,98426d20200119qDE-101uhttps://d-nb.info/provenance/plan#aepkn0 82\\paaepsgc0,99929d20200119qDE-101uhttps://d-nb.info/provenance/plan#aepsg".as_bytes();
 
     fn test_reader(
         _: &str,
@@ -270,6 +315,22 @@ mod test {
             v.push(or);
         })?;
         assert_eq!(v.len(), 2);
+        let num_fields :Vec<usize> = v.iter().map(|x| {x.field_iter(None).count()}).collect();
+        assert_eq!(num_fields, vec![18,44]);
+        Ok(())
+    }
+
+    #[test]
+    fn test2() -> Result<(), String> {
+        let mut v: Vec<OwnedRecord> = Vec::new();
+        run_sql("select 700, 42 from bla", test_reader, |r: &dyn Record| {
+            let mut or = OwnedRecord::new();
+            or.add_field_from_iter(&mut r.field_iter(None));
+            v.push(or);
+        })?;
+        assert_eq!(v.len(), 2);
+        let num_fields :Vec<usize> = v.iter().map(|x| {x.field_iter(None).count()}).collect();
+        assert_eq!(num_fields, vec![1,6]);
         Ok(())
     }
 }
