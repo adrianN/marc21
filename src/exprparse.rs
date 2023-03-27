@@ -92,7 +92,7 @@ fn parse_NOT<'a>(
                 identifier_expr.children = children;
                 if let Some((_, LexItem::Punctuation(Punctuation::Paren))) = input.get(next_offset)
                 {
-                    return Ok((identifier_expr, next_offset + 2));
+                    return Ok((identifier_expr, next_offset + 1));
                 } else {
                     return Err(format!(
                         "expected ')' after expr list found {:?}",

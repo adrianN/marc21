@@ -69,7 +69,8 @@ pub fn parse(input: &str) -> Result<ParseNode, String> {
         } else {
             Err(format!(
                 "Expected end of input, found {:?} at {}",
-                tokens[i], i
+                tokens.get(i),
+                i
             ))
         }
     })

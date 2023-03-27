@@ -307,7 +307,7 @@ mod test {
     }
 
     #[test]
-    fn test1() -> Result<(), String> {
+    fn test_select_star() -> Result<(), String> {
         let mut v: Vec<OwnedRecord> = Vec::new();
         run_sql("select * from bla", test_reader, |r: &dyn Record| {
             let mut or = OwnedRecord::new();
@@ -315,13 +315,13 @@ mod test {
             v.push(or);
         })?;
         assert_eq!(v.len(), 2);
-        let num_fields :Vec<usize> = v.iter().map(|x| {x.field_iter(None).count()}).collect();
-        assert_eq!(num_fields, vec![18,44]);
+        let num_fields: Vec<usize> = v.iter().map(|x| x.field_iter(None).count()).collect();
+        assert_eq!(num_fields, vec![18, 44]);
         Ok(())
     }
 
     #[test]
-    fn test2() -> Result<(), String> {
+    fn test_select() -> Result<(), String> {
         let mut v: Vec<OwnedRecord> = Vec::new();
         run_sql("select 700, 42 from bla", test_reader, |r: &dyn Record| {
             let mut or = OwnedRecord::new();
@@ -329,8 +329,112 @@ mod test {
             v.push(or);
         })?;
         assert_eq!(v.len(), 2);
-        let num_fields :Vec<usize> = v.iter().map(|x| {x.field_iter(None).count()}).collect();
-        assert_eq!(num_fields, vec![1,6]);
+        let num_fields: Vec<usize> = v.iter().map(|x| x.field_iter(None).count()).collect();
+        assert_eq!(num_fields, vec![1, 6]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_select_2() -> Result<(), String> {
+        let mut v: Vec<OwnedRecord> = Vec::new();
+        run_sql("select 9999 from bla", test_reader, |r: &dyn Record| {
+            let mut or = OwnedRecord::new();
+            or.add_field_from_iter(&mut r.field_iter(None));
+            v.push(or);
+        })?;
+        assert_eq!(v.len(), 2);
+        let num_fields: Vec<usize> = v.iter().map(|x| x.field_iter(None).count()).collect();
+        assert_eq!(num_fields, vec![0, 0]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_not_null_field_ref() -> Result<(), String> {
+        let mut v: Vec<OwnedRecord> = Vec::new();
+        run_sql(
+            "select * from bla where not_null(42)",
+            test_reader,
+            |r: &dyn Record| {
+                let mut or = OwnedRecord::new();
+                or.add_field_from_iter(&mut r.field_iter(None));
+                v.push(or);
+            },
+        )?;
+        assert_eq!(v.len(), 1);
+        let num_fields: Vec<usize> = v.iter().map(|x| x.field_iter(None).count()).collect();
+        assert_eq!(num_fields, vec![18]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_not_null_expr() -> Result<(), String> {
+        let mut v: Vec<OwnedRecord> = Vec::new();
+        run_sql(
+            "select * from bla where not_null(42 ~ 'aoe')",
+            test_reader,
+            |r: &dyn Record| {
+                let mut or = OwnedRecord::new();
+                or.add_field_from_iter(&mut r.field_iter(None));
+                v.push(or);
+            },
+        )?;
+        assert_eq!(v.len(), 1);
+        let num_fields: Vec<usize> = v.iter().map(|x| x.field_iter(None).count()).collect();
+        assert_eq!(num_fields, vec![18]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_is_null_field_ref() -> Result<(), String> {
+        let mut v: Vec<OwnedRecord> = Vec::new();
+        run_sql(
+            "select * from bla where is_null(42)",
+            test_reader,
+            |r: &dyn Record| {
+                let mut or = OwnedRecord::new();
+                or.add_field_from_iter(&mut r.field_iter(None));
+                v.push(or);
+            },
+        )?;
+        assert_eq!(v.len(), 1);
+        let num_fields: Vec<usize> = v.iter().map(|x| x.field_iter(None).count()).collect();
+        assert_eq!(num_fields, vec![44]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_is_null_expr() -> Result<(), String> {
+        let mut v: Vec<OwnedRecord> = Vec::new();
+        run_sql(
+            "select * from bla where is_null(42 ~ 'aou')",
+            test_reader,
+            |r: &dyn Record| {
+                let mut or = OwnedRecord::new();
+                or.add_field_from_iter(&mut r.field_iter(None));
+                v.push(or);
+            },
+        )?;
+        assert_eq!(v.len(), 1);
+        let num_fields: Vec<usize> = v.iter().map(|x| x.field_iter(None).count()).collect();
+        assert_eq!(num_fields, vec![44]);
+        Ok(())
+    }
+
+    #[test]
+    fn test_not() -> Result<(), String> {
+        let mut v: Vec<OwnedRecord> = Vec::new();
+        run_sql(
+            "select * from bla where not(is_null(42))",
+            test_reader,
+            |r: &dyn Record| {
+                let mut or = OwnedRecord::new();
+                or.add_field_from_iter(&mut r.field_iter(None));
+                v.push(or);
+            },
+        )?;
+        assert_eq!(v.len(), 1);
+        let num_fields: Vec<usize> = v.iter().map(|x| x.field_iter(None).count()).collect();
+        assert_eq!(num_fields, vec![18]);
         Ok(())
     }
 }
